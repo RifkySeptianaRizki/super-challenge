@@ -47,16 +47,12 @@ body {
   overflow-x: hidden;
 }
 
-/* Scrollbar */
+/* Hide Scrollbar */
+html {
+  scrollbar-width: none; /* Firefox */
+}
 ::-webkit-scrollbar {
-  width: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--sc-red);
-  border-radius: 4px;
+  display: none; /* Chrome, Safari, Edge */
 }
 
 /* =========================================

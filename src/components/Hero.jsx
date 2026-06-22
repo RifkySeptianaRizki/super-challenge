@@ -58,7 +58,8 @@ export default function Hero() {
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="mb-24 sm:mb-40"
+            className="mb-10 sm:mb-16"
+            style={{ marginBottom: '1rem' }}
           >
             <motion.img 
               animate={{ y: [0, -8, 0] }}
@@ -73,7 +74,8 @@ export default function Hero() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-center mt-24 sm:mt-40 mb-10 sm:mb-8"
+            className="text-center mb-10 sm:mb-8"
+            style={{ marginTop: '1rem' }}
           >
             <h1 
               className="relative text-7xl sm:text-[8rem] md:text-[11rem] font-normal tracking-wide uppercase flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 leading-none italic"
@@ -96,7 +98,7 @@ export default function Hero() {
             className="flex flex-col items-center gap-2 sm:gap-3 -mt-4 sm:-mt-8"
           >
             <h2 
-              className="text-3xl sm:text-5xl font-normal text-white tracking-widest uppercase drop-shadow-md"
+              className="text-center text-3xl sm:text-5xl font-normal text-white tracking-widest uppercase drop-shadow-md"
               style={{ fontFamily: "'American Captain', sans-serif" }}
             >
               SUPER MOBILE LEGENDS COMPETITION

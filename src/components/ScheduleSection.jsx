@@ -89,7 +89,7 @@ export default function ScheduleSection() {
   const filteredMatches = scheduleData.filter((day) => day.games.length > 0);
 
   return (
-    <section id="jadwal" className="relative w-full min-h-[100dvh] bg-sc-black overflow-hidden flex flex-col justify-center py-32 sm:py-40">
+    <section id="jadwal" className="relative w-full min-h-[100dvh] bg-sc-black overflow-hidden flex flex-col items-center" style={{ paddingTop: '4rem', paddingBottom: '4rem' }}>
       {/* Background image / overlay like Hero */}
       <div className="absolute inset-0 bg-[url('/banner.png')] bg-cover bg-fixed bg-top bg-no-repeat opacity-90 pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-t from-sc-black/80 via-transparent to-transparent z-10 pointer-events-none" />
@@ -132,7 +132,7 @@ export default function ScheduleSection() {
         })}
       </div>
 
-      <div className="relative z-10 w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 ">
         
         {/* Title */}
         <div className="text-center mb-10">
@@ -148,21 +148,24 @@ export default function ScheduleSection() {
         </div>
 
         {/* Schedule Single Day Grid */}
-        <div className="flex flex-col items-center gap-8 w-full">
+        <div className="flex flex-col items-center gap-9 w-full">
           {filteredMatches.map((day) => (
             <motion.div 
               key={day.id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="border border-dashed border-gray-600 bg-black/40 backdrop-blur-md p-6 sm:p-10 w-full max-w-6xl shadow-2xl rounded-sm"
+              className="border border-dashed border-gray-600 bg-black/40 backdrop-blur-md p-6 sm:p-10 w-full max-w-6xl shadow-2xl rounded-xl"
             >
               <h3 className="text-center font-bold text-lg sm:text-2xl text-white mb-6 sm:mb-10 mt-2 tracking-wide">
                 {day.date}
               </h3>
               
-              {/* Desktop 2-Column, Mobile 1-Column Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-16 xl:gap-x-24 w-full">
+              {/* Desktop 2-Column, Mobile 1-Column Grid — single game gets centered */}
+              <div 
+                className={`grid grid-cols-1 w-full ${day.games.length > 1 ? 'lg:grid-cols-2 gap-x-18 xl:gap-x-28' : ''}`}
+                style={day.games.length === 1 ? { maxWidth: '36rem', margin: '0 auto' } : {}}
+              >
                 {day.games.map((game, index) => {
                   const isLastRowDesktop = index >= day.games.length - 2;
                   const isLastRowMobile = index === day.games.length - 1;
@@ -201,7 +204,7 @@ function MatchRow({ game, isLastDesktop, isLastMobile }) {
   const logoSrc2 = t2.logo || `/assets/teams/${(t2.code || "").toLowerCase()}.png`;
 
   return (
-    <div className={`flex items-center justify-between border-gray-500 py-4 sm:py-5 ${isLastMobile ? 'border-b-0' : 'border-b border-dashed'} lg:${isLastDesktop ? 'border-b-0' : 'border-b border-dashed'}`}>
+    <div style={{ paddingTop: '0.1rem', paddingBottom: '0.1rem' }} className={`flex items-center justify-between border-gray-500 ${isLastMobile ? 'border-b-0' : 'border-b border-dashed'} lg:${isLastDesktop ? 'border-b-0' : 'border-b border-dashed'}`}>
       
       {/* Team 1 */}
       <div className="flex flex-col items-center w-[70px] sm:w-[90px] gap-2">
@@ -224,9 +227,9 @@ function MatchRow({ game, isLastDesktop, isLastMobile }) {
 
       {/* Center Details */}
       <div className="flex flex-col items-center gap-2 sm:gap-3 flex-1 px-2 sm:px-4">
-        <span className="text-[11px] sm:text-xs font-bold text-gray-400 tracking-wider">{game.time}</span>
+        <span className="text-sm sm:text-base font-bold text-gray-400 tracking-wider">{game.time}</span>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <span className={`text-[9px] sm:text-[10px] font-bold px-3 py-1.5 sm:px-4 sm:py-2 tracking-widest rounded-sm shadow-sm ${
+          <span className={`text-xs sm:text-sm font-bold px-4 py-2 sm:px-5 sm:py-2.5 tracking-widest rounded-sm shadow-sm ${
             game.status === "completed"
               ? "bg-green-800/70 text-green-200"
               : game.status === "live"
@@ -237,11 +240,11 @@ function MatchRow({ game, isLastDesktop, isLastMobile }) {
           }`}>
             {statusLabel(game.status)}
           </span>
-          <span className="bg-[#E68A00] text-white text-[9px] sm:text-[10px] font-bold px-3 py-1.5 sm:px-4 sm:py-2 tracking-widest rounded-sm shadow-sm">
+          <span className="bg-[#E68A00] text-white text-xs sm:text-sm font-bold px-4 py-2 sm:px-5 sm:py-2.5 tracking-widest rounded-sm shadow-sm">
             BO{game.bestOf}
           </span>
         </div>
-        <span className="text-[9px] text-gray-500 font-medium tracking-wider">{game.matchId}</span>
+        <span className="text-xs sm:text-sm text-gray-500 font-medium tracking-wider">{game.matchId}</span>
       </div>
 
       {/* Score 2 */}
