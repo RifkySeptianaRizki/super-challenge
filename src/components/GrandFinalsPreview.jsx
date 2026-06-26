@@ -49,7 +49,7 @@ export default function GrandFinalsPreview() {
             className="flex flex-col items-center z-10"
           >
             <div className="w-32 h-32 sm:w-48 sm:h-48 mb-6 drop-shadow-2xl">
-              <TeamLogo teamId={team1.code} className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" fallbackText={team1.code} />
+              <TeamLogo code={team1.code} name={team1.name} size={128} rounded="lg" className="filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" fallbackText={team1.code} />
             </div>
             <span className="text-xl sm:text-2xl font-bold tracking-widest text-white uppercase bg-black/40 px-6 py-2 border border-white/10 backdrop-blur-md text-center">
               {team1.name}
@@ -78,7 +78,7 @@ export default function GrandFinalsPreview() {
             className="flex flex-col items-center z-10"
           >
             <div className="w-32 h-32 sm:w-48 sm:h-48 mb-6 drop-shadow-2xl">
-              <TeamLogo teamId={team2.code} className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" fallbackText={team2.code} />
+              <TeamLogo code={team2.code} name={team2.name} size={128} rounded="lg" className="filter drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" fallbackText={team2.code} />
             </div>
             <span className="text-xl sm:text-2xl font-bold tracking-widest text-white uppercase bg-black/40 px-6 py-2 border border-white/10 backdrop-blur-md text-center">
               {team2.name}

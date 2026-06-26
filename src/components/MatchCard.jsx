@@ -21,7 +21,7 @@ export default function MatchCard({ game }) {
     >
       {/* Team A */}
       <div className={`flex items-center gap-2 flex-1 min-w-0 ${aWins ? "opacity-100" : isCompleted ? "opacity-50" : "opacity-100"}`}>
-        <TeamLogo src={teamA.logo} code={game.teamA} color={teamA.color} size={32} />
+        <TeamLogo team={teamA} code={game.teamA} name={teamA.name} color={teamA.color} size={32} />
         <div className="min-w-0">
           <p className="font-bold text-xs sm:text-sm truncate">{game.teamA}</p>
           <p className="text-[10px] text-gray-400 truncate hidden sm:block">{teamA.name}</p>
@@ -70,7 +70,7 @@ export default function MatchCard({ game }) {
           <p className="font-bold text-xs sm:text-sm truncate">{game.teamB}</p>
           <p className="text-[10px] text-gray-400 truncate hidden sm:block">{teamB.name}</p>
         </div>
-        <TeamLogo src={teamB.logo} code={game.teamB} color={teamB.color} size={32} />
+        <TeamLogo team={teamB} code={game.teamB} name={teamB.name} color={teamB.color} size={32} />
       </div>
     </motion.div>
   );

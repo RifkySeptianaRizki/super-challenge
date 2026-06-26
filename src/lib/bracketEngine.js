@@ -1,7 +1,9 @@
 export const BRACKET_SCHEMA_VERSION = 2;
 export const BRACKET_FORMAT = "single_elimination_16";
+export const ALLOWED_BEST_OF = [1, 3, 5, 7, 9];
+export const DEFAULT_BEST_OF = 3;
 export const SERIES_TYPE = "BO3";
-export const BEST_OF = 3;
+export const BEST_OF = DEFAULT_BEST_OF;
 export const REQUIRED_WINS = 2;
 
 export const ROUND_ORDER = ["R16", "QF", "SF", "GF"];
@@ -61,14 +63,14 @@ const normalizeId = (value) => {
   return trimmed ? trimmed : null;
 };
 
-const normalizeScore = (value) => {
+const normalizeScore = (value, requiredWins = REQUIRED_WINS) => {
   const score = normalizeNumber(value);
-  return score !== null && score >= 0 && score <= REQUIRED_WINS ? score : 0;
+  return score !== null && score >= 0 && score <= requiredWins ? score : 0;
 };
 
 const hasBothTeams = (match) => Boolean(match?.teamAId && match?.teamBId);
 
-const makeBaseMatch = (definition, timestamp = nowIso()) => ({
+const makeBaseMatch = (definition, timestamp = nowIso(), bestOf = DEFAULT_BEST_OF) => ({
   id: definition.id,
   round: definition.round,
   roundLabel: definition.roundLabel,
@@ -76,8 +78,8 @@ const makeBaseMatch = (definition, timestamp = nowIso()) => ({
   order: definition.order,
   matchNo: definition.matchNo,
   label: definition.label,
-  bestOf: BEST_OF,
-  requiredWins: REQUIRED_WINS,
+  bestOf: isValidBestOf(bestOf) ? Number(bestOf) : DEFAULT_BEST_OF,
+  requiredWins: getRequiredWins(bestOf),
   teamAId: null,
   teamBId: null,
   teamASeed: definition.teamASeed ?? null,
@@ -103,12 +105,12 @@ const getWinnerSlot = (scoreA, scoreB, requiredWins = REQUIRED_WINS) => {
   return null;
 };
 
-const scoreInputIsAllowed = (scoreA, scoreB) => {
+const scoreInputIsAllowed = (scoreA, scoreB, requiredWins = REQUIRED_WINS) => {
   const a = normalizeNumber(scoreA);
   const b = normalizeNumber(scoreB);
   if (a === null || b === null) return false;
-  if (a < 0 || b < 0 || a > REQUIRED_WINS || b > REQUIRED_WINS) return false;
-  if (a === REQUIRED_WINS && b === REQUIRED_WINS) return false;
+  if (a < 0 || b < 0 || a > requiredWins || b > requiredWins) return false;
+  if (a === requiredWins && b === requiredWins) return false;
   return true;
 };
 
@@ -172,7 +174,8 @@ const sortBracket = (matches) => [...matches].sort((a, b) => {
   return a.order - b.order;
 });
 
-const normalizeBracketMatches = (matches) => {
+const normalizeBracketMatches = (matches, options = {}) => {
+  const defaultBestOf = isValidBestOf(options.bestOf) ? Number(options.bestOf) : DEFAULT_BEST_OF;
   const sourceById = Array.isArray(matches)
     ? matches.reduce((acc, match) => {
         if (match?.id) acc[match.id] = match;
@@ -183,7 +186,11 @@ const normalizeBracketMatches = (matches) => {
 
   return MATCH_DEFINITIONS.map((definition) => {
     const raw = sourceById[definition.id] || {};
-    const base = makeBaseMatch(definition, timestamp);
+    const bestOf = isValidBestOf(raw.bestOf ?? raw.best_of)
+      ? Number(raw.bestOf ?? raw.best_of)
+      : defaultBestOf;
+    const requiredWins = getRequiredWins(bestOf);
+    const base = makeBaseMatch(definition, timestamp, bestOf);
 
     return {
       ...base,
@@ -191,10 +198,15 @@ const normalizeBracketMatches = (matches) => {
       teamBId: normalizeId(raw.teamBId) ?? normalizeId(raw.teamB) ?? base.teamBId,
       teamASeed: normalizeNumber(raw.teamASeed) ?? base.teamASeed,
       teamBSeed: normalizeNumber(raw.teamBSeed) ?? base.teamBSeed,
-      scoreA: normalizeScore(raw.scoreA),
-      scoreB: normalizeScore(raw.scoreB),
+      bestOf,
+      requiredWins,
+      scoreA: normalizeScore(raw.scoreA, requiredWins),
+      scoreB: normalizeScore(raw.scoreB, requiredWins),
       date: sanitizeText(raw.date, 40),
       time: sanitizeText(raw.time, 20),
+      venue: sanitizeText(raw.venue, 80),
+      stage: sanitizeText(raw.stage, 80),
+      streamLink: sanitizeText(raw.streamLink || raw.stream_link, 160),
       locked: Boolean(raw.locked),
       updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : base.updatedAt,
     };
@@ -221,33 +233,51 @@ export function createTournamentConfig(overrides = {}) {
   const safeOverrides = overrides && typeof overrides === "object" && !Array.isArray(overrides)
     ? overrides
     : {};
+  const bestOf = isValidBestOf(safeOverrides.bestOf ?? safeOverrides.best_of)
+    ? Number(safeOverrides.bestOf ?? safeOverrides.best_of)
+    : DEFAULT_BEST_OF;
   return {
     schemaVersion: BRACKET_SCHEMA_VERSION,
     format: BRACKET_FORMAT,
-    seriesType: SERIES_TYPE,
-    bestOf: BEST_OF,
-    requiredWins: REQUIRED_WINS,
     totalTeams: 16,
     totalMatches: 15,
     updatedAt: nowIso(),
     ...safeOverrides,
+    seriesType: getSeriesLabel(bestOf),
+    bestOf,
+    requiredWins: getRequiredWins(bestOf),
   };
 }
 
 export function getRequiredWins(bestOf) {
   const parsed = normalizeNumber(bestOf);
-  if (!parsed || parsed < 1) return REQUIRED_WINS;
+  if (!isValidBestOf(parsed)) return REQUIRED_WINS;
   return Math.floor(parsed / 2) + 1;
 }
 
-export function isValidBO3Score(scoreA, scoreB) {
+export function isValidBestOf(bestOf) {
+  const parsed = normalizeNumber(bestOf);
+  return ALLOWED_BEST_OF.includes(parsed);
+}
+
+export function getSeriesLabel(bestOf) {
+  const safeBestOf = isValidBestOf(bestOf) ? Number(bestOf) : DEFAULT_BEST_OF;
+  return `BO${safeBestOf}`;
+}
+
+export function isValidSeriesScore(scoreA, scoreB, bestOf = DEFAULT_BEST_OF) {
+  const requiredWins = getRequiredWins(bestOf);
   const a = normalizeNumber(scoreA);
   const b = normalizeNumber(scoreB);
-  if (a === null || b === null) return false;
+  if (!scoreInputIsAllowed(a, b, requiredWins)) return false;
   return (
-    (a === REQUIRED_WINS && (b === 0 || b === 1))
-    || (b === REQUIRED_WINS && (a === 0 || a === 1))
+    (a === requiredWins && b < requiredWins)
+    || (b === requiredWins && a < requiredWins)
   );
+}
+
+export function isValidBO3Score(scoreA, scoreB) {
+  return isValidSeriesScore(scoreA, scoreB, DEFAULT_BEST_OF);
 }
 
 export function getWinnerFromScore(scoreA, scoreB, requiredWins = REQUIRED_WINS) {
@@ -262,18 +292,18 @@ export function getMatchStatus(match) {
   const scoreA = normalizeNumber(match?.scoreA);
   const scoreB = normalizeNumber(match?.scoreB);
   if (scoreA === null || scoreB === null) return "upcoming";
-  if (isValidBO3Score(scoreA, scoreB)) return "completed";
+  if (isValidSeriesScore(scoreA, scoreB, match?.bestOf || DEFAULT_BEST_OF)) return "completed";
   if (scoreA === 0 && scoreB === 0) return "upcoming";
   return "live";
 }
 
-export function createEmptyBracket() {
-  return MATCH_DEFINITIONS.map((definition) => makeBaseMatch(definition));
+export function createEmptyBracket(bestOf = DEFAULT_BEST_OF) {
+  return MATCH_DEFINITIONS.map((definition) => makeBaseMatch(definition, nowIso(), bestOf));
 }
 
-export function createInitialBracketFromSeeds(seeds) {
+export function createInitialBracketFromSeeds(seeds, bestOf = DEFAULT_BEST_OF) {
   const seedMap = seedToTeamMap(seeds);
-  const matches = createEmptyBracket().map((match) => {
+  const matches = createEmptyBracket(bestOf).map((match) => {
     if (match.round !== "R16") return match;
     const teamA = seedMap.get(match.teamASeed);
     const teamB = seedMap.get(match.teamBSeed);
@@ -288,7 +318,7 @@ export function createInitialBracketFromSeeds(seeds) {
   return recalculateBracket(matches);
 }
 
-export function createInitialBracketFromTeams(teams) {
+export function createInitialBracketFromTeams(teams, bestOf = DEFAULT_BEST_OF) {
   const seeds = (Array.isArray(teams) ? teams : [])
     .slice()
     .sort((a, b) => {
@@ -304,10 +334,10 @@ export function createInitialBracketFromTeams(teams) {
       teamCode: sanitizeTeamCode(team?.code),
     }));
 
-  return createInitialBracketFromSeeds(seeds);
+  return createInitialBracketFromSeeds(seeds, bestOf);
 }
 
-export function createInitialBracketFromStandings(standings, teams) {
+export function createInitialBracketFromStandings(standings, teams, bestOf = DEFAULT_BEST_OF) {
   const teamList = Array.isArray(teams) ? teams : [];
   const seeds = (Array.isArray(standings) ? standings : [])
     .slice()
@@ -329,11 +359,11 @@ export function createInitialBracketFromStandings(standings, teams) {
       };
     });
 
-  return createInitialBracketFromSeeds(seeds);
+  return createInitialBracketFromSeeds(seeds, bestOf);
 }
 
-export function recalculateBracket(matches) {
-  const normalized = normalizeBracketMatches(matches);
+export function recalculateBracket(matches, options = {}) {
+  const normalized = normalizeBracketMatches(matches, options);
   const byId = {};
   const timestamp = nowIso();
 
@@ -363,7 +393,7 @@ export function recalculateBracket(matches) {
       }
     }
 
-    if (!scoreInputIsAllowed(next.scoreA, next.scoreB)) {
+    if (!scoreInputIsAllowed(next.scoreA, next.scoreB, next.requiredWins)) {
       next.scoreA = 0;
       next.scoreB = 0;
       slotChanged = true;
@@ -396,14 +426,15 @@ export function updateMatchResult(matches, matchId, scoreA, scoreB) {
   if (parsedA === null || parsedB === null) {
     throw new Error("Skor harus berupa angka bulat.");
   }
-  if (!scoreInputIsAllowed(parsedA, parsedB)) {
-    throw new Error("Skor BO3 hanya boleh 0, 1, atau 2 dan tidak boleh 2-2.");
-  }
-
   const current = recalculateBracket(matches);
   const oldMatch = current.find((match) => match.id === matchId);
   if (!oldMatch) {
     throw new Error(`Match ${matchId} tidak ditemukan.`);
+  }
+  if (!scoreInputIsAllowed(parsedA, parsedB, oldMatch.requiredWins)) {
+    throw new Error(
+      `Skor ${getSeriesLabel(oldMatch.bestOf)} hanya boleh 0 sampai ${oldMatch.requiredWins} dan tidak boleh ${oldMatch.requiredWins}-${oldMatch.requiredWins}.`
+    );
   }
   if (!hasBothTeams(oldMatch) && (parsedA !== 0 || parsedB !== 0)) {
     throw new Error("Match belum punya dua tim, skor belum bisa disimpan.");
@@ -427,15 +458,156 @@ export function updateMatchResult(matches, matchId, scoreA, scoreB) {
   return changed ? resetDependentMatches(recalculated, matchId) : recalculated;
 }
 
-export function resetBracketResults(matches) {
-  return recalculateBracket((Array.isArray(matches) ? matches : createEmptyBracket()).map((match) => ({
+export function createValidFinalScores(bestOf = DEFAULT_BEST_OF) {
+  const safeBestOf = isValidBestOf(bestOf) ? Number(bestOf) : DEFAULT_BEST_OF;
+  const requiredWins = getRequiredWins(safeBestOf);
+  const scores = [];
+  for (let loserScore = 0; loserScore < requiredWins; loserScore += 1) {
+    scores.push({
+      label: `A ${requiredWins}-${loserScore}`,
+      scoreA: requiredWins,
+      scoreB: loserScore,
+      winnerSlot: "A",
+      bestOf: safeBestOf,
+    });
+  }
+  for (let loserScore = 0; loserScore < requiredWins; loserScore += 1) {
+    scores.push({
+      label: `B ${requiredWins}-${loserScore}`,
+      scoreA: loserScore,
+      scoreB: requiredWins,
+      winnerSlot: "B",
+      bestOf: safeBestOf,
+    });
+  }
+  return scores;
+}
+
+export function createQuickWinOptions(match) {
+  const options = createValidFinalScores(match?.bestOf || DEFAULT_BEST_OF).map((option) => ({
+    ...option,
+    disabled: option.winnerSlot === "A" ? !match?.teamAId : !match?.teamBId,
+  }));
+  return [...options, { label: "Clear", scoreA: 0, scoreB: 0, winnerSlot: null, disabled: false }];
+}
+
+export function resetBracketResults(matches, options = {}) {
+  const bestOf = isValidBestOf(options.bestOf) ? Number(options.bestOf) : null;
+  return recalculateBracket((Array.isArray(matches) ? matches : createEmptyBracket(bestOf || DEFAULT_BEST_OF)).map((match) => ({
     ...match,
+    bestOf: bestOf || match.bestOf || DEFAULT_BEST_OF,
+    requiredWins: getRequiredWins(bestOf || match.bestOf || DEFAULT_BEST_OF),
     scoreA: 0,
     scoreB: 0,
     winnerTeamId: null,
     loserTeamId: null,
     status: match.teamAId && match.teamBId ? "upcoming" : "empty",
   })));
+}
+
+export function applySeriesFormat(matches, bestOf, options = {}) {
+  if (!isValidBestOf(bestOf)) {
+    throw new Error("Format series harus BO1, BO3, BO5, BO7, atau BO9.");
+  }
+  const requiredWins = getRequiredWins(bestOf);
+  const resetResults = options.resetResults !== false;
+  const source = Array.isArray(matches) ? matches : createEmptyBracket(bestOf);
+  return recalculateBracket(source.map((match) => {
+    const next = {
+      ...match,
+      bestOf: Number(bestOf),
+      requiredWins,
+    };
+    if (!resetResults) return next;
+    return {
+      ...next,
+      scoreA: 0,
+      scoreB: 0,
+      winnerTeamId: null,
+      loserTeamId: null,
+      teamAId: match.round === "R16" ? match.teamAId : null,
+      teamBId: match.round === "R16" ? match.teamBId : null,
+      status: match.round === "R16" && match.teamAId && match.teamBId ? "upcoming" : "empty",
+    };
+  }), { bestOf });
+}
+
+export function validateDrawSlots(slots, teams) {
+  const teamIds = new Set((Array.isArray(teams) ? teams : []).map((team) => team.id));
+  const normalized = (Array.isArray(slots) ? slots : []).map((slot) => (
+    typeof slot === "string" ? slot : slot?.id || slot?.teamId || ""
+  ));
+  const errors = [];
+  if (normalized.length !== 16) errors.push("Draw harus berisi tepat 16 slot.");
+  if (normalized.some((slot) => !slot)) errors.push("Semua slot draw harus terisi.");
+  const used = new Set();
+  normalized.forEach((teamId, index) => {
+    if (teamId && teamIds.size && !teamIds.has(teamId)) {
+      errors.push(`Slot ${index + 1} berisi team yang tidak valid.`);
+    }
+    if (teamId && used.has(teamId)) errors.push("Satu team tidak boleh muncul di dua slot.");
+    if (teamId) used.add(teamId);
+  });
+  for (let index = 0; index < normalized.length; index += 2) {
+    if (normalized[index] && normalized[index] === normalized[index + 1]) {
+      errors.push(`Match R16-${Math.floor(index / 2) + 1} punya team yang sama.`);
+    }
+  }
+  return {
+    valid: errors.length === 0,
+    errors: [...new Set(errors)],
+    slots: normalized,
+  };
+}
+
+export function createManualBracketFromSlots(slots, bestOf = DEFAULT_BEST_OF) {
+  const normalized = (Array.isArray(slots) ? slots : []).map((slot) => (
+    typeof slot === "string" ? slot : slot?.id || slot?.teamId || null
+  ));
+  const matches = createEmptyBracket(bestOf).map((match) => {
+    if (match.round !== "R16") return match;
+    const slotIndex = (match.order - 1) * 2;
+    const teamAId = normalized[slotIndex] || null;
+    const teamBId = normalized[slotIndex + 1] || null;
+    return {
+      ...match,
+      teamAId,
+      teamBId,
+      teamASeed: slotIndex + 1,
+      teamBSeed: slotIndex + 2,
+      status: teamAId && teamBId ? "upcoming" : "empty",
+    };
+  });
+  return recalculateBracket(matches, { bestOf });
+}
+
+export function shuffleTeams(teams, seed) {
+  const list = [...(Array.isArray(teams) ? teams : [])];
+  let state = Number.isInteger(Number(seed)) ? Number(seed) : null;
+  const random = () => {
+    if (state === null) {
+      if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+        const values = new Uint32Array(1);
+        crypto.getRandomValues(values);
+        return values[0] / 0xffffffff;
+      }
+      return Math.random();
+    }
+    state = (state * 1664525 + 1013904223) % 0x100000000;
+    return state / 0x100000000;
+  };
+
+  for (let index = list.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+  }
+  return list;
+}
+
+export function createRandomDrawSlots(teams, options = {}) {
+  return shuffleTeams(teams, options.seed)
+    .slice(0, 16)
+    .map((team) => team.id);
 }
 
 export function validateBracketSchema(data) {
@@ -459,10 +631,12 @@ export function validateBracketSchema(data) {
       errors.push(`Match ${match?.id || "UNKNOWN"} tidak dikenal.`);
       return;
     }
-    if (match.bestOf !== BEST_OF || match.requiredWins !== REQUIRED_WINS) {
-      errors.push(`${match.id} wajib BO3.`);
+    const bestOf = isValidBestOf(match.bestOf) ? Number(match.bestOf) : DEFAULT_BEST_OF;
+    const requiredWins = getRequiredWins(bestOf);
+    if (!isValidBestOf(match.bestOf) || match.requiredWins !== requiredWins) {
+      errors.push(`${match.id} punya format BO tidak valid.`);
     }
-    if (!scoreInputIsAllowed(match.scoreA, match.scoreB)) {
+    if (!scoreInputIsAllowed(match.scoreA, match.scoreB, requiredWins)) {
       errors.push(`${match.id} punya skor tidak valid.`);
     }
     if (match.status === "completed" && (!match.teamAId || !match.teamBId)) {

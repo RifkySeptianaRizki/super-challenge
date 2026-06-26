@@ -9,8 +9,13 @@ import {
   sanitizeText,
   validateBracketSchema,
 } from "./bracketEngine";
+import { sanitizeImageUrl } from "./imageUtils";
 
 const BACKUP_KEY = "superchallenge_backup_last_valid";
+const CACHE_KEYS = {
+  lastKnownGood: "superchallenge_cache_last_known_good",
+  updatedAt: "superchallenge_cache_updated_at",
+};
 
 const STORAGE_KEYS = {
   tournamentConfig: "superchallenge_tournament_config",
@@ -60,18 +65,72 @@ const sanitizeDeep = (value) => {
   return null;
 };
 
+const getRawLogoValue = (team = {}) => (
+  team.logo_url ?? team.logoUrl ?? team.logo ?? team.image ?? team.avatar ?? team.icon ?? ""
+);
+
+const sanitizeTeamLogo = (team, fallback = {}) => {
+  const rawLogo = getRawLogoValue(team);
+  const hasExplicitLogo = String(rawLogo ?? "").trim().length > 0;
+
+  if (hasExplicitLogo) {
+    return sanitizeImageUrl(rawLogo, { allowRelativeAssets: true }) || "";
+  }
+
+  return sanitizeImageUrl(getRawLogoValue(fallback), { allowRelativeAssets: true }) || "";
+};
+
+const summarizeImportedLogos = (teams) => {
+  const source = Array.isArray(teams) && teams.length ? teams : defaultTournamentData.teams;
+  return source.slice(0, 16).reduce((summary, team) => {
+    const rawLogo = getRawLogoValue(team);
+    if (!String(rawLogo ?? "").trim()) {
+      summary.empty += 1;
+      return summary;
+    }
+
+    if (sanitizeImageUrl(rawLogo, { allowRelativeAssets: true })) {
+      summary.valid += 1;
+    } else {
+      summary.invalid += 1;
+    }
+
+    return summary;
+  }, {
+    teams: Math.min(source.length, 16),
+    valid: 0,
+    empty: 0,
+    invalid: 0,
+  });
+};
+
 const sanitizeTeam = (team, index) => {
   const fallback = defaultTournamentData.teams[index] || {};
   const code = sanitizeTeamCode(team?.code || fallback.code || `TEAM${index + 1}`);
+  const logoUrl = sanitizeTeamLogo(team, fallback);
+  const logoKey = safeString(team?.logoKey || team?.logo_key || fallback.logoKey || fallback.logo_key || "", 160);
+  const seedNo = Number.isInteger(Number(team?.seedNo ?? team?.seed_no ?? team?.rank))
+    ? Number(team.seedNo ?? team.seed_no ?? team.rank)
+    : index + 1;
+
   return {
     ...fallback,
     ...sanitizeDeep(team),
     id: safeString(team?.id || fallback.id || code.toLowerCase(), 40),
     code,
     name: sanitizeText(team?.name || fallback.name || code, 60),
-    fullName: sanitizeText(team?.fullName || team?.name || fallback.fullName || code, 80),
-    rank: Number.isInteger(Number(team?.rank)) ? Number(team.rank) : index + 1,
-    logo: safeString(team?.logo || fallback.logo || `/assets/teams/${code.toLowerCase()}.png`, 160),
+    fullName: sanitizeText(team?.fullName || team?.shortName || team?.short_name || team?.name || fallback.fullName || code, 80),
+    shortName: sanitizeText(team?.shortName || team?.short_name || team?.fullName || team?.name || fallback.fullName || code, 80),
+    short_name: sanitizeText(team?.shortName || team?.short_name || team?.fullName || team?.name || fallback.fullName || code, 80),
+    rank: seedNo,
+    seedNo,
+    seed_no: seedNo,
+    logo: logoUrl,
+    logoUrl,
+    logo_url: logoUrl,
+    image: logoUrl,
+    logoKey,
+    logo_key: logoKey,
     color: safeString(team?.color || fallback.color || "#F22738", 20),
     record: safeString(team?.record || fallback.record || "0 - 0", 20),
   };
@@ -178,9 +237,37 @@ export function clearTournamentStorage() {
   Object.values(STORAGE_KEYS).forEach((key) => removeStorageItem(key));
 }
 
+export function loadCachedTournamentData() {
+  return getStorageItem(CACHE_KEYS.lastKnownGood, null);
+}
+
+export function saveCachedTournamentData(data) {
+  if (!isPlainObject(data)) return false;
+  const timestamp = new Date().toISOString();
+  setStorageItem(CACHE_KEYS.updatedAt, timestamp);
+  return setStorageItem(CACHE_KEYS.lastKnownGood, {
+    ...data,
+    cacheUpdatedAt: timestamp,
+  });
+}
+
+export function clearCachedTournamentData() {
+  removeStorageItem(CACHE_KEYS.lastKnownGood);
+  removeStorageItem(CACHE_KEYS.updatedAt);
+}
+
+export function readLegacyLocalStorageSnapshot() {
+  const snapshot = {};
+  Object.entries(STORAGE_KEYS).forEach(([dataKey, storageKey]) => {
+    snapshot[dataKey] = getStorageItem(storageKey, undefined);
+  });
+  return snapshot;
+}
+
 export function migrateLegacyData(data = {}) {
   const source = isPlainObject(data) ? data : {};
   const teams = sanitizeTeams(source.teams);
+  const logoSummary = summarizeImportedLogos(source.teams);
   const standings = sanitizeStandings(source.standings, teams);
   const bracketValidation = validateBracketSchema(source.bracket);
   const bracket = bracketValidation.valid
@@ -212,6 +299,13 @@ export function migrateLegacyData(data = {}) {
       ...sanitizeDeep(source.settings),
     },
     bracket: bracket?.length ? bracket : createInitialBracketFromTeams(teams),
+    importSummary: {
+      teams: teams.length,
+      logoValid: logoSummary.valid,
+      logoEmpty: logoSummary.empty,
+      logoInvalid: logoSummary.invalid,
+      logos: logoSummary,
+    },
   };
 }
 
@@ -403,4 +497,4 @@ export function importTournamentData(jsonData) {
   return loadTournamentData();
 }
 
-export { BACKUP_KEY, STORAGE_KEYS };
+export { BACKUP_KEY, CACHE_KEYS, STORAGE_KEYS };

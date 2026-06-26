@@ -52,7 +52,7 @@ export default function TeamsSection() {
       <div className="relative z-10 w-full max-w-[100rem] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
         
         {/* Title */}
-        <div className="w-full flex justify-center mb-16 sm:mb-24">
+        <div className="w-full flex justify-center mb-5 sm:mb-5">
           <h2 
             className="text-[6rem] sm:text-[9rem] font-normal text-white drop-shadow-[0_10px_20px_rgba(0,0,0,1)] tracking-widest uppercase inline-block" 
             style={{ fontFamily: "'American Captain', sans-serif", transform: "scaleY(1.3)" }}
@@ -62,7 +62,7 @@ export default function TeamsSection() {
         </div>
 
         {/* Pennants Grid/Flex */}
-        <div className="flex flex-wrap justify-center gap-3 sm:gap-5 lg:gap-6 w-full">
+        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-3 sm:gap-5 lg:gap-6 w-full justify-items-center">
           {teams.map((team, i) => (
             <motion.div
               key={team.id}
@@ -90,7 +90,7 @@ export default function TeamsSection() {
                   {/* White Body with Logo */}
                   <div className="flex-1 w-full bg-white flex items-center justify-center p-2 sm:p-3 pb-8 sm:pb-12">
                     <div className="group-hover:scale-110 transition-transform duration-500 w-full h-full flex items-center justify-center">
-                      <TeamLogo src={team.logo} code={team.code} size={64} className="max-w-full max-h-full object-contain" />
+                      <TeamLogo team={team} code={team.code} name={team.name} size="xl" rounded="lg" variant="plain" className="max-w-full max-h-full" />
                     </div>
                   </div>
                 </div>

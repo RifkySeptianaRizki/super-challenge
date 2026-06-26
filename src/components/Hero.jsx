@@ -53,22 +53,34 @@ export default function Hero() {
         {/* Main Content Layout */}
         <div className="flex flex-col items-center justify-start w-full z-30">
           
+          
           {/* Logo (replacing MPL Logo) */}
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="mb-10 sm:mb-16"
-            style={{ marginBottom: '1rem' }}
-          >
-            <motion.img 
-              animate={{ y: [0, -8, 0] }}
-              transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-              src="/super-ml-logo.png" 
-              alt="Super Challenge" 
-              className="w-40 sm:w-56 md:w-64 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]" 
-            />
-          </motion.div>
+         {/* Logo Area */}
+<motion.div
+  initial={{ scale: 0.8, opacity: 0 }}
+  animate={{ scale: 1, opacity: 1 }}
+  transition={{ duration: 0.8, ease: "easeOut" }}
+  className="mb-10 sm:mb-16 flex flex-col items-center gap-3 sm:gap-4"
+  style={{ marginBottom: "1rem" }}
+>
+  {/* Logo Super Challenge Lanjang di atas */}
+<motion.img
+  animate={{ y: [0, -5, 0] }}
+  transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
+  src="/superchallange-lanjang.png"
+  alt="Super Challenge"
+  className="w-44 sm:w-60 md:w-72 object-contain drop-shadow-[0_8px_18px_rgba(0,0,0,0.55)] -translate-x-2 sm:-translate-x-3"
+/>
+
+  {/* Logo Super ML di bawah */}
+  <motion.img
+    animate={{ y: [0, -8, 0] }}
+    transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+    src="/super-ml-logo.png"
+    alt="Super Mobile Legends Competition"
+    className="w-40 sm:w-56 md:w-64 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]"
+  />
+</motion.div>
           {/* Title text */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
@@ -106,13 +118,13 @@ export default function Hero() {
             <motion.div 
               animate={{ boxShadow: ["0px 0px 0px rgba(204,0,0,0)", "0px 0px 15px rgba(204,0,0,0.3)", "0px 0px 0px rgba(204,0,0,0)"] }}
               transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-              className="bg-[#cc0000] px-6 py-2 sm:px-12 sm:py-3 shadow-lg mt-1"
+              className="bg-[#cc0000] rounded-3xl px-6 py-2 sm:px-8 sm:py-3 shadow-lg mt-1"
             >
               <span 
                 className="block text-white font-normal text-xl sm:text-3xl tracking-widest uppercase"
                 style={{ fontFamily: "'American Captain', sans-serif", transform: "translateY(2px)" }}
               >
-                27 JUNI 2026 - ZAZI CAFFE
+                27 JUNI 2026 - ZAZI CAFE
               </span>
             </motion.div>
             
@@ -121,14 +133,13 @@ export default function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.6 }}
-              className="mt-18 sm:mt-25 flex flex-col items-center gap-3 sm:gap-5"
+              className="mt-5 sm:mt-10 flex flex-col items-center gap-3 sm:gap-5"
             >
               <span className="text-white/80 text-sm sm:text-base tracking-widest uppercase font-semibold italic">
                 Sponsored By
               </span>
-              <div className="flex justify-center items-center gap-10 sm:gap-16">
+              <div className="flex justify-center items-center gap-10 sm:gap-13">
                 <motion.img animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0 }} src="/zazi-logo.png" alt="Zazi" className="h-8 sm:h-12 object-contain hover:scale-105 drop-shadow-md" />
-                <motion.img animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.5 }} src="/superchallange-lanjang.png" alt="Super Challenge" className="h-8 sm:h-12 object-contain hover:scale-105 drop-shadow-md" />
                 <motion.img animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 1 }} src="/super-friends.png" alt="Super Friends" className="h-8 sm:h-12 object-contain hover:scale-105 drop-shadow-md" />
               </div>
             </motion.div>

@@ -53,7 +53,7 @@ export default function Navbar() {
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/10">
               <Link to="/" onClick={() => setIsOpen(false)} className="flex items-center">
-                <img src="/superchallange-lanjang.png" alt="Super Challenge" className="h-6 object-contain" />
+                <img src="/superchallange-lanjang.png" alt="Super Challenge" className="h-10 object-contain" />
               </Link>
               <button
                 onClick={() => setIsOpen(false)}
