@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { ExternalLink, Plus, RefreshCw, XCircle } from "lucide-react";
+import { ExternalLink, Plus, RefreshCw, XCircle, Trash2 } from "lucide-react";
 import { SEED_PAIRINGS, sanitizeTeamCode, sanitizeText } from "../../../lib/bracketEngine";
 import { getImageUrlStatus, sanitizeImageUrl } from "../../../lib/imageUtils";
 import TeamLogo from "../../TeamLogo";
 import { AdminButton, AdminPanel, SectionHeader } from "../AdminUI";
+import useTournamentStore from "../../../store/useTournamentStore";
 
 const getLogoValue = (team = {}) => (
   team.logoUrl ?? team.logo_url ?? team.logo ?? team.image ?? ""
@@ -82,6 +83,36 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
         metadata: {},
       },
     ]);
+  };
+
+  const removeTeamDraft = async (index) => {
+    const team = teamsDraft[index];
+    const key = team.id || index;
+
+    const existingTeam = store.teams.find((t) => t.id === team.id);
+    if (existingTeam) {
+      const isConfirmed = window.confirm(`Yakin ingin menghapus tim ${team.name || team.code || `Team ${index + 1}`} dari database?`);
+      if (!isConfirmed) return;
+      
+      try {
+        await useTournamentStore.getState().deleteTeam(team.id);
+      } catch (err) {
+        alert("Gagal menghapus tim: " + err.message);
+        return;
+      }
+    }
+
+    setTeamsDraft((current) => current.filter((_, i) => i !== index));
+    setLogoLoadErrors((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+    setLogoTestKeys((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   };
 
   const clearLogo = (index) => {
@@ -261,8 +292,20 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
 
             return (
               <div key={teamKey} className="group relative overflow-hidden rounded-2xl border border-[#731414]/30 bg-gradient-to-br from-[#400C0C] to-[#260505] p-4 transition-all hover:-translate-y-1 hover:border-[#F2D98D]/40 hover:shadow-lg">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]/60">Team {index + 1}</div>
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]/60">Team {index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTeamDraft(index)}
+                        className="flex h-5 w-5 items-center justify-center rounded bg-[#F22738]/10 text-[#F22738]/60 transition-colors hover:bg-[#F22738] hover:text-white"
+                        title="Hapus tim ini"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
                   <TeamLogo
                     key={`${teamKey}-${logoTestKeys[teamKey] || 0}`}
                     src={logoStatus?.sanitized}

@@ -4,14 +4,15 @@ import { Home, ChevronRight, Search } from "lucide-react";
 export default function AdminTopbar({ title, isOpen, setIsOpen }) {
   return (
     <header className="relative z-10 shrink-0">
-      <div className="flex flex-wrap items-center justify-between gap-4 px-4 pt-2 pb-2 md:flex-nowrap md:px-6">
+      <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1.5 sm:gap-4 sm:px-4 md:px-6">
         {/* kiri: menu + breadcrumb */}
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           {/* tombol menu mobile */}
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#731414]/50 bg-[#260505] text-white/70 shadow-sm transition hover:bg-[#400C0C] hover:text-white lg:hidden"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#731414]/50 bg-[#260505] text-white/70 shadow-sm transition hover:bg-[#400C0C] hover:text-white sm:h-11 sm:w-11 lg:hidden"
+            aria-label={isOpen ? "Tutup menu admin" : "Buka menu admin"}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -32,7 +33,7 @@ export default function AdminTopbar({ title, isOpen, setIsOpen }) {
 
           <div className="min-w-0">
             {/* breadcrumb chip glassy */}
-            <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#120303]/80 px-4 py-1.5 text-xs font-bold text-white/60 ring-1 ring-[#731414]/40 shadow-sm">
+            <div className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#120303]/80 px-3 py-1.5 text-[11px] font-bold text-white/60 ring-1 ring-[#731414]/40 shadow-sm sm:gap-2 sm:px-4 sm:text-xs">
               <Link
                 to="/"
                 className="inline-flex items-center gap-1.5 transition hover:text-[#F2D98D]"
@@ -41,9 +42,9 @@ export default function AdminTopbar({ title, isOpen, setIsOpen }) {
                 <span className="hidden sm:inline">Home</span>
               </Link>
               <ChevronRight className="h-3 w-3 text-white/30" />
-              <span className="text-[#F22738]">Super Admin</span>
-              <ChevronRight className="h-3 w-3 text-white/30" />
-              <span className="max-w-[200px] truncate text-white">
+              <span className="hidden text-[#F22738] sm:inline">Super Admin</span>
+              <ChevronRight className="hidden h-3 w-3 text-white/30 sm:block" />
+              <span className="max-w-[130px] truncate text-white sm:max-w-[200px]">
                 {title || "Dashboard"}
               </span>
             </div>
@@ -51,7 +52,7 @@ export default function AdminTopbar({ title, isOpen, setIsOpen }) {
         </div>
 
         {/* kanan: search + CTA */}
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="hidden shrink-0 items-center gap-4 sm:flex">
           {/* search pill desktop */}
           <div className="hidden items-center gap-2 rounded-full bg-[#120303]/80 px-4 py-2 text-sm text-white/50 shadow-inner ring-1 ring-[#731414]/40 backdrop-blur sm:flex md:w-72">
             <Search className="h-4 w-4 text-[#F22738]" />
@@ -61,13 +62,6 @@ export default function AdminTopbar({ title, isOpen, setIsOpen }) {
               placeholder="Pencarian cepat..."
             />
           </div>
-
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#731414]/50 bg-[#120303]/80 text-white/70 shadow-sm transition hover:bg-[#400C0C] hover:text-white sm:hidden"
-          >
-            <Search className="h-5 w-5" />
-          </button>
 
           <Link
             to="/"

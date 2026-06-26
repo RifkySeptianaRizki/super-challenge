@@ -35,6 +35,7 @@ import {
   updateMatchMeta,
   updateSiteSetting,
   updateTeam,
+  deleteTeam as deleteTeamApi,
   updateTournamentSeriesFormat as updateTournamentSeriesFormatApi,
   upsertTeam,
 } from "../services/tournamentApi";
@@ -239,6 +240,26 @@ const useTournamentStore = create((set, get) => ({
     try {
       await updateTeam(teamId, payload);
       await get().refreshAdminData();
+    } catch (error) {
+      set({ error: error.message });
+      throw error;
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+  deleteTeam: async (teamId) => {
+    set({ saving: true, error: null });
+    try {
+      if (get().isOnlineMode) {
+        await deleteTeamApi(teamId);
+        await get().refreshAdminData();
+      } else {
+        // Offline mode: just filter the teams and save to cache
+        const newTeams = get().teams.filter(t => t.id !== teamId);
+        set({ teams: newTeams });
+        get().saveCache();
+      }
     } catch (error) {
       set({ error: error.message });
       throw error;

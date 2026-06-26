@@ -210,8 +210,8 @@ export default function AdminDashboard({ onLogout, adminUser }) {
       
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-right-8 fade-in duration-300">
-          <div className={`flex items-center gap-3 rounded-2xl border-2 px-6 py-4 shadow-2xl backdrop-blur-xl ${
+        <div className="fixed bottom-4 left-4 right-4 z-50 animate-in slide-in-from-right-8 fade-in duration-300 sm:bottom-8 sm:left-auto sm:right-8">
+          <div className={`flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3 shadow-2xl backdrop-blur-xl sm:w-auto sm:px-6 sm:py-4 ${
             toast.type === "success"
               ? "border-emerald-500/50 bg-[#120303]/90 text-emerald-400 shadow-[0_10px_40px_rgba(16,185,129,0.2)]"
               : "border-[#F22738]/50 bg-[#120303]/90 text-[#F22738] shadow-[0_10px_40px_rgba(242,39,56,0.2)]"

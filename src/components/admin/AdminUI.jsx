@@ -74,8 +74,8 @@ export function AdminSelect({ className, children, ...props }) {
 
 export function AdminPageHeader({ eyebrow, title, description, action, children }) {
   return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="max-w-xl space-y-2">
+    <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
+      <div className="min-w-0 max-w-xl space-y-2">
         {eyebrow && (
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#F2D98D]/80">
             {eyebrow}
@@ -91,7 +91,7 @@ export function AdminPageHeader({ eyebrow, title, description, action, children 
         )}
       </div>
       {action && (
-        <div className="relative flex-shrink-0">
+        <div className="relative w-full flex-shrink-0 sm:w-auto">
           {action}
         </div>
       )}

@@ -27,7 +27,20 @@ export default function AdminSidebar({
     tab.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const asideWidth = isMobile ? "w-[320px]" : isOpen ? "w-[360px]" : "w-[80px]";
+  const asideWidth = isMobile
+    ? "w-[85vw] max-w-[320px]"
+    : isOpen
+      ? "w-[360px]"
+      : "w-[80px]";
+
+  // Pastikan kelas transform tidak dihapus oleh tailwind-merge
+  const baseClasses = cn(
+    "relative flex h-full flex-col rounded-r-[35px] border-r border-[#731414]/30 bg-[#120303]/90 backdrop-blur-xl text-white transition-[width,transform] duration-300 ease-in-out z-50",
+    asideWidth
+  );
+  
+  const mobileClasses = isMobile ? " fixed inset-y-0 left-0 shadow-2xl shadow-black/50" : "";
+  const transformClasses = isMobile && !isOpen ? " -translate-x-full pointer-events-none" : " translate-x-0";
 
   return (
     <>
@@ -41,26 +54,22 @@ export default function AdminSidebar({
 
       {/* Sidebar Wrapper */}
       <aside
-        className={cn(
-          "relative flex h-full flex-col rounded-r-[35px] border-r border-[#731414]/30 bg-[#120303]/90 backdrop-blur-xl text-white transition-[width,transform] duration-300 ease-in-out z-50",
-          asideWidth,
-          isMobile && !isOpen ? "-translate-x-full fixed inset-y-0 left-0" : "translate-x-0",
-          isMobile && isOpen ? "fixed inset-y-0 left-0" : ""
-        )}
+        className={`${baseClasses}${mobileClasses}${transformClasses}`}
+        aria-hidden={isMobile && !isOpen}
       >
         <div className="relative flex h-full flex-1">
           {/* LEFT ICON RAIL */}
-          <div className="flex w-[80px] flex-col items-center justify-between rounded-r-[35px] pb-6 pt-5 bg-[#0a0101]/80 shadow-2xl z-20">
+          <div className="flex w-[72px] shrink-0 flex-col items-center justify-between rounded-r-[28px] bg-[#0a0101]/80 pb-5 pt-4 shadow-2xl sm:w-[80px] sm:rounded-r-[35px] sm:pb-6 sm:pt-5 z-20">
             <div className="flex flex-col items-center gap-4">
               {/* logo */}
               <Link
                 to="/"
-                className="group relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl transition-all"
+                className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl transition-all sm:h-14 sm:w-14"
               >
                 <img
                   src="/super-ml-logo.png"
                   alt="SC"
-                  className="relative z-10 h-10 w-10 object-contain"
+                  className="relative z-10 h-9 w-9 object-contain sm:h-10 sm:w-10"
                 />
               </Link>
 
@@ -81,23 +90,23 @@ export default function AdminSidebar({
               )}
 
               {/* main icons */}
-              <nav className="mt-4 flex flex-col items-center gap-3">
+              <nav className="mt-3 flex flex-col items-center gap-2.5 sm:mt-4 sm:gap-3">
                 <Link
                   to="/"
-                  className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F2D98D] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#731414]"
+                  className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F2D98D] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#731414] sm:h-12 sm:w-12"
                 >
                   <Home className="relative z-10 h-5 w-5" />
                 </Link>
 
-                <div className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738]">
+                <div className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738] sm:h-12 sm:w-12">
                   <Search className="relative z-10 h-5 w-5" />
                 </div>
 
-                <div className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738]">
+                <div className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738] sm:h-12 sm:w-12">
                   <Mail className="relative z-10 h-5 w-5" />
                 </div>
 
-                <div className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738]">
+                <div className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#1a0303] text-white/40 shadow-sm ring-1 ring-[#731414]/30 hover:bg-[#260505] hover:text-[#F22738] sm:h-12 sm:w-12">
                   <Bell className="relative z-10 h-5 w-5" />
                 </div>
               </nav>
@@ -108,7 +117,7 @@ export default function AdminSidebar({
               <button
                 onClick={onLogout}
                 type="button"
-                className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F22738] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#F22738] hover:text-white"
+                className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F22738] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#F22738] hover:text-white sm:h-12 sm:w-12"
               >
                 <LogOut className="relative z-10 h-5 w-5 pl-1" />
               </button>
@@ -117,13 +126,13 @@ export default function AdminSidebar({
 
           {/* RIGHT PANEL – panel menu */}
           {(isOpen || isMobile) && (
-            <div className="flex min-w-0 flex-1 flex-col px-4 pt-5 pb-6">
+            <div className="flex min-w-0 flex-1 flex-col px-3 pb-5 pt-4 sm:px-4 sm:pb-6 sm:pt-5">
               {/* header kecil */}
-              <div className="mb-6 mt-0 flex items-center justify-between gap-2 px-2">
+              <div className="mb-4 mt-0 flex items-center justify-between gap-2 px-1 sm:mb-6 sm:px-2">
                 <img
                   src="/superchallange-lanjang.png"
                   alt="Super Challenge"
-                  className="h-8 w-auto object-contain"
+                  className="h-7 max-w-[150px] object-contain sm:h-8 sm:max-w-none"
                 />
 
                 {isMobile && (
