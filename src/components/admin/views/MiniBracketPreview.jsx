@@ -1,6 +1,7 @@
 import { Eye } from "lucide-react";
 import { AdminPanel, StatusBadge } from "../AdminUI";
 import TeamLogo from "../../TeamLogo";
+import { getRoundStructure, getVisibleMatches, isAutoAdvanceMatch } from "../../../lib/bracketEngine";
 
 const roundLabels = {
   R16: "Round of 16",
@@ -10,7 +11,11 @@ const roundLabels = {
 };
 
 export default function MiniBracketPreview({ bracket, teamsById, champion }) {
-  const rounds = ["R16", "QF", "SF", "GF"];
+  const bracketSize = bracket?.find((match) => match.bracketSize)?.bracketSize || 16;
+  const rounds = getRoundStructure(bracketSize)
+    .map((match) => match.round)
+    .filter((round, index, list) => list.indexOf(round) === index);
+  const matches = getVisibleMatches(bracket, bracketSize);
 
   return (
     <AdminPanel 
@@ -18,44 +23,50 @@ export default function MiniBracketPreview({ bracket, teamsById, champion }) {
       caption="Live bracket state dari Supabase."
       icon={Eye}
     >
-      <div className="flex w-full overflow-x-auto pb-4 no-scrollbar">
-        <div className="flex min-w-max gap-4 md:gap-6 py-4">
+      <div className="flex w-full max-w-full overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex min-w-max gap-4 py-4 md:gap-6">
           {rounds.map((round) => (
-            <div key={round} className="flex w-64 flex-col h-[580px]">
+            <div key={round} className="flex h-[580px] w-60 flex-col sm:w-64">
               <div className="flex items-center gap-2 mb-4 h-6 shrink-0">
                  <div className="h-1.5 w-1.5 rounded-full bg-[#F2D98D]" />
                  <div className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]">{roundLabels[round]}</div>
               </div>
               <div className="flex flex-1 flex-col justify-around">
-                {bracket.filter((match) => match.round === round).map((match) => (
+                {matches.filter((match) => match.round === round).map((match) => {
+                  const teamA = teamsById.get(match.teamAId);
+                  const teamB = teamsById.get(match.teamBId);
+                  const codeA = match.teamAIsBye || match.slotAType === "bye" ? "BYE" : teamA?.code || "TBA";
+                  const codeB = match.teamBIsBye || match.slotBType === "bye" ? "BYE" : teamB?.code || "TBA";
+                  return (
                   <div key={match.id} className="group relative overflow-hidden rounded-xl border border-[#731414]/40 bg-[#260505]/80 p-3 shadow-md transition-all hover:border-[#F2D98D]/50 hover:bg-[#400C0C]">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_forwards]" />
                     <div className="relative z-10 mb-2 flex items-center justify-between border-b border-[#731414]/30 pb-2">
                       <span className="text-[10px] font-black uppercase tracking-wider text-white/50 group-hover:text-white/80 transition-colors">{match.id}</span>
-                      <StatusBadge status={match.status} />
+                      <StatusBadge status={isAutoAdvanceMatch(match) ? "auto" : match.status} />
                     </div>
                     <div className="relative z-10 flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex min-w-0 items-center gap-2">
-                          <TeamLogo team={teamsById.get(match.teamAId)} code={teamsById.get(match.teamAId)?.code || "TBA"} size="xs" />
-                          <span className="truncate font-bold tracking-wide text-white">{teamsById.get(match.teamAId)?.code || "TBA"}</span>
+                          <TeamLogo team={teamA} code={codeA} size="xs" />
+                          <span className="truncate font-bold tracking-wide text-white">{codeA}</span>
                         </div>
                         <span className="font-black text-[#F2D98D] bg-[#F2D98D]/10 px-1.5 py-0.5 rounded">{match.teamAId ? match.scoreA : "-"}</span>
                       </div>
                       <div className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex min-w-0 items-center gap-2">
-                          <TeamLogo team={teamsById.get(match.teamBId)} code={teamsById.get(match.teamBId)?.code || "TBA"} size="xs" />
-                          <span className="truncate font-bold tracking-wide text-white">{teamsById.get(match.teamBId)?.code || "TBA"}</span>
+                          <TeamLogo team={teamB} code={codeB} size="xs" />
+                          <span className="truncate font-bold tracking-wide text-white">{codeB}</span>
                         </div>
                         <span className="font-black text-[#F2D98D] bg-[#F2D98D]/10 px-1.5 py-0.5 rounded">{match.teamBId ? match.scoreB : "-"}</span>
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
-          <div className="flex w-64 flex-col h-[580px]">
+          <div className="flex h-[580px] w-60 flex-col sm:w-64">
             <div className="flex items-center gap-2 mb-4 h-6 shrink-0">
                <div className="h-1.5 w-1.5 rounded-full bg-[#F22738] animate-pulse" />
                <div className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]">Champion</div>

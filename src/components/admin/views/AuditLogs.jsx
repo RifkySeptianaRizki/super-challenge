@@ -6,19 +6,19 @@ export default function AuditLogs({ store, runAction }) {
   const [renderedAt] = useState(() => Date.now());
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <SectionHeader
         title="Audit Logs"
         description="Riwayat perubahan data oleh admin dari Supabase. Data ini tidak diakses oleh public."
         action={
-          <AdminButton variant="secondary" onClick={() => runAction(store.refreshAdminData, "Audit logs refreshed.")}>
+          <AdminButton className="w-full sm:w-auto" variant="secondary" onClick={() => runAction(store.refreshAdminData, "Audit logs refreshed.")}>
             <RefreshCw size={16} /> Refresh Logs
           </AdminButton>
         }
       />
       
       <AdminPanel className="p-0 overflow-hidden" icon={ScrollText}>
-        <div className="overflow-x-auto no-scrollbar">
+        <div className="max-w-full overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[900px] text-left text-sm text-white/80">
             <thead className="bg-[#400C0C]/50 border-b border-[#731414]/50">
               <tr>

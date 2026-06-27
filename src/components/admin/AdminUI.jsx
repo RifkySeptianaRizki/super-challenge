@@ -15,7 +15,7 @@ import AdminShell from "./AdminShell";
 export { AdminSidebar, AdminTopbar, AdminShell };
 
 export const adminPanelClass =
-  "rounded-2xl border border-[#731414]/20 bg-[#120303]/60 shadow-[0_20px_60px_-15px_rgba(242,39,56,0.1)] backdrop-blur-md transition-all duration-300";
+  "w-full min-w-0 rounded-2xl border border-[#731414]/20 bg-[#120303]/60 shadow-[0_20px_60px_-15px_rgba(242,39,56,0.1)] backdrop-blur-md transition-all duration-300";
 
 export const adminFieldClass =
   "min-h-11 w-full rounded-xl border border-[#731414]/50 bg-[#260505]/80 px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-white/30 focus:border-[#F22738] focus:bg-[#400C0C] focus:ring-4 focus:ring-[#F22738]/20 disabled:cursor-not-allowed disabled:opacity-50";
@@ -45,7 +45,7 @@ export function AdminButton({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl border-2 font-black uppercase tracking-wider transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none",
+        "inline-flex min-w-0 max-w-full items-center justify-center gap-2 rounded-xl border-2 text-center font-black uppercase leading-tight tracking-wider transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none",
         variants[variant],
         sizes[size],
         className
@@ -74,52 +74,52 @@ export function AdminSelect({ className, children, ...props }) {
 
 export function AdminPageHeader({ eyebrow, title, description, action, children }) {
   return (
-    <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
+    <div className="flex min-w-0 flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
       <div className="min-w-0 max-w-xl space-y-2">
         {eyebrow && (
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#F2D98D]/80">
             {eyebrow}
           </p>
         )}
-        <h1 className="text-2xl font-bold text-white lg:text-3xl">
+        <h1 className="break-words text-2xl font-bold text-white lg:text-3xl">
           {title}
         </h1>
         {description && (
-          <p className="text-sm text-white/60">
+          <p className="text-sm leading-relaxed text-white/60">
             {description}
           </p>
         )}
       </div>
       {action && (
-        <div className="relative w-full flex-shrink-0 sm:w-auto">
+        <div className="relative min-w-0 flex-shrink-0 sm:w-auto">
           {action}
         </div>
       )}
-      {children && <div className="mt-4">{children}</div>}
+      {children && <div className="mt-4 min-w-0">{children}</div>}
     </div>
   );
 }
 
 export function AdminPanel({ children, className, title, caption, action, icon: Icon }) {
   return (
-    <div className={cn(adminPanelClass, "flex flex-col p-5 sm:p-6", className)}>
+    <div className={cn(adminPanelClass, "flex min-w-0 flex-col p-4 sm:p-5 md:p-6", className)}>
       {(title || action) && (
-        <div className="mb-5 flex flex-col gap-3 border-b border-[#731414]/30 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="mb-5 flex min-w-0 flex-col gap-3 border-b border-[#731414]/30 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             {Icon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F22738]/10 text-[#F22738]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F22738]/10 text-[#F22738]">
                  <Icon size={20} />
               </div>
             )}
-            <div>
-              {title && <h3 className="text-lg font-bold text-white">{title}</h3>}
-              {caption && <p className="mt-0.5 text-xs text-[#F2D98D]/70">{caption}</p>}
+            <div className="min-w-0">
+              {title && <h3 className="break-words text-lg font-bold text-white">{title}</h3>}
+              {caption && <p className="mt-0.5 text-xs leading-relaxed text-[#F2D98D]/70">{caption}</p>}
             </div>
           </div>
-          {action && <div className="shrink-0">{action}</div>}
+          {action && <div className="min-w-0 shrink-0">{action}</div>}
         </div>
       )}
-      <div className="flex-1">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
@@ -147,7 +147,7 @@ export function StatsCard({ label, value, caption, icon: Icon, tone = "red" }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border p-5 md:p-6",
+        "relative min-w-0 overflow-hidden rounded-2xl border p-5 md:p-6",
         "shadow-[0_22px_55px_-32px_rgba(242,39,56,0.3)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5",
         t.wrapper
       )}
@@ -158,17 +158,17 @@ export function StatsCard({ label, value, caption, icon: Icon, tone = "red" }) {
         <div className="absolute -bottom-10 left-0 h-20 w-20 rounded-full bg-white/5 blur-2xl" />
       </div>
 
-      <div className="relative flex items-center justify-between gap-4">
-        <div>
+      <div className="relative flex min-w-0 items-center justify-between gap-4">
+        <div className="min-w-0">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
             <span className={cn("h-1.5 w-1.5 rounded-full", t.dot)} />
-            <span>{label}</span>
+            <span className="min-w-0 truncate">{label}</span>
           </p>
           <p className="mt-2 text-2xl md:text-3xl font-black text-white">{value}</p>
-          {caption && <p className="mt-1 text-[10px] text-white/40">{caption}</p>}
+          {caption && <p className="mt-1 break-words text-[10px] text-white/40">{caption}</p>}
         </div>
         {Icon ? (
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 shadow-inner">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 shadow-inner">
             <Icon className={cn("h-5 w-5", t.icon)} />
           </div>
         ) : null}
@@ -185,7 +185,7 @@ export function ActionCard({ title, description, icon: Icon, action, tone = "def
       disabled={disabled}
       className={cn(
         adminPanelClass,
-        "group relative flex min-h-[140px] w-full flex-col items-start gap-3 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(242,39,56,0.15)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:-translate-y-0 disabled:hover:shadow-none",
+        "group relative flex min-h-[140px] w-full min-w-0 flex-col items-start gap-3 p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(242,39,56,0.15)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:-translate-y-0 disabled:hover:shadow-none",
         tone === "danger" ? "border-[#F22738]/30 hover:border-[#F22738]/60" : "hover:border-[#F2D98D]/40"
       )}
     >
@@ -198,9 +198,9 @@ export function ActionCard({ title, description, icon: Icon, action, tone = "def
         {Icon && <Icon size={20} />}
       </div>
       
-      <div className="relative mt-1">
-        <h4 className="text-base font-bold text-white">{title}</h4>
-        <p className="mt-1 text-xs leading-relaxed text-white/50">{description}</p>
+      <div className="relative mt-1 min-w-0">
+        <h4 className="break-words text-base font-bold text-white">{title}</h4>
+        <p className="mt-1 break-words text-xs leading-relaxed text-white/50">{description}</p>
       </div>
       
       {action && (
@@ -241,6 +241,7 @@ export function StatusBadge({ status }) {
     upcoming: "border-blue-400/40 bg-blue-400/15 text-blue-300",
     waiting: "border-white/20 bg-white/10 text-white/60",
     empty: "border-white/20 bg-white/10 text-white/60",
+    auto: "border-[#F2D98D]/35 bg-[#F2D98D]/10 text-[#F2D98D]",
     active: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]",
   };
 
@@ -282,18 +283,18 @@ export function EmptyState({ title, description, icon: Icon = ShieldCheck }) {
 export function AdminModal({ open, title, description, children, footer, onClose }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
       
       {/* Modal */}
-      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-[#F22738]/30 bg-gradient-to-br from-[#260505] to-[#120303] shadow-[0_20px_70px_rgba(0,0,0,0.7)]">
+      <div className="relative max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-2xl overflow-hidden rounded-2xl border border-[#F22738]/30 bg-gradient-to-br from-[#260505] to-[#120303] shadow-[0_20px_70px_rgba(0,0,0,0.7)] sm:w-full">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDMiLz4KPC9zdmc+')] mix-blend-overlay" />
         
-        <div className="relative z-10 flex items-start justify-between border-b border-[#731414]/50 bg-[#400C0C]/40 px-6 py-5">
-          <div>
-            <h2 className="text-xl font-black uppercase tracking-wide text-white">{title}</h2>
-            {description && <p className="mt-1 text-sm font-medium text-[#F2D98D]/70">{description}</p>}
+        <div className="relative z-10 flex min-w-0 items-start justify-between gap-4 border-b border-[#731414]/50 bg-[#400C0C]/40 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h2 className="break-words text-lg font-black uppercase tracking-wide text-white sm:text-xl">{title}</h2>
+            {description && <p className="mt-1 break-words text-sm font-medium text-[#F2D98D]/70">{description}</p>}
           </div>
           <button
             onClick={onClose}
@@ -304,12 +305,12 @@ export function AdminModal({ open, title, description, children, footer, onClose
           </button>
         </div>
         
-        <div className="relative z-10 max-h-[60vh] overflow-y-auto p-6 no-scrollbar">
+        <div className="relative z-10 max-h-[60dvh] min-w-0 overflow-y-auto p-4 no-scrollbar sm:p-6">
           {children}
         </div>
         
         {footer && (
-          <div className="relative z-10 flex flex-wrap justify-end gap-3 border-t border-[#731414]/50 bg-[#400C0C]/40 px-6 py-5">
+          <div className="relative z-10 flex flex-wrap justify-end gap-3 border-t border-[#731414]/50 bg-[#400C0C]/40 px-4 py-4 sm:px-6 sm:py-5">
             {footer}
           </div>
         )}

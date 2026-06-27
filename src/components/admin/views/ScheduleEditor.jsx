@@ -1,14 +1,23 @@
 import { useState } from "react";
-import { sanitizeText } from "../../../lib/bracketEngine";
+import { getSchedulableMatches, sanitizeText } from "../../../lib/bracketEngine";
 import { AdminButton, AdminPanel, SectionHeader } from "../AdminUI";
 import { CalendarDays } from "lucide-react";
 import TeamLogo from "../../TeamLogo";
 
 export default function ScheduleEditor({ store, teamsById, runAction }) {
-  const [draft, setDraft] = useState(store.bracket);
+  const bracketKey = store.bracket
+    .map((match) => `${match.id}:${match.updatedAt || ""}:${match.date || ""}:${match.time || ""}:${match.venue || ""}:${match.stage || ""}:${match.streamLink || ""}`)
+    .join("|");
+  const [draftState, setDraftState] = useState({ key: bracketKey, draft: store.bracket });
+  const draft = draftState.key === bracketKey ? draftState.draft : store.bracket;
+  const bracketSize = store.tournamentConfig?.bracketSize
+    || store.tournamentConfig?.bracket_size
+    || store.bracket.find((match) => match.bracketSize)?.bracketSize
+    || 16;
+  const scheduleRows = getSchedulableMatches(draft, bracketSize);
 
   const save = async () => {
-    for (const match of draft) {
+    for (const match of scheduleRows) {
       await store.updateBracketMatchMeta(match.id, {
         date: match.date || null,
         time: match.time || null,
@@ -20,24 +29,30 @@ export default function ScheduleEditor({ store, teamsById, runAction }) {
   };
 
   const updateDraft = (matchId, payload) => {
-    setDraft((current) => current.map((match) => (
-      match.id === matchId ? { ...match, ...payload } : match
-    )));
+    setDraftState((current) => {
+      const currentDraft = current.key === bracketKey ? current.draft : store.bracket;
+      return {
+        key: bracketKey,
+        draft: currentDraft.map((match) => (
+          match.id === matchId ? { ...match, ...payload } : match
+        )),
+      };
+    });
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <SectionHeader
         title="Schedule Editor"
         description="Atur jadwal pertandingan, venue, stage, dan link stream. Data akan disimpan ke bracket match."
         action={
-          <AdminButton onClick={() => runAction(save, "Schedule saved.")}>
+          <AdminButton className="w-full sm:w-auto" onClick={() => runAction(save, "Schedule saved.")}>
             Save Schedule
           </AdminButton>
         }
       />
       <AdminPanel className="p-0 overflow-hidden" icon={CalendarDays}>
-        <div className="overflow-x-auto no-scrollbar">
+        <div className="max-w-full overflow-x-auto no-scrollbar">
           <table className="w-full min-w-[1100px] text-left text-sm text-white/80">
             <thead className="bg-[#400C0C]/50 border-b border-[#731414]/50">
               <tr>
@@ -51,7 +66,7 @@ export default function ScheduleEditor({ store, teamsById, runAction }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#731414]/20">
-              {draft.map((match) => {
+              {scheduleRows.map((match) => {
                 const teamA = teamsById.get(match.teamAId);
                 const teamB = teamsById.get(match.teamBId);
                 return (
@@ -113,6 +128,13 @@ export default function ScheduleEditor({ store, teamsById, runAction }) {
                   </tr>
                 );
               })}
+              {scheduleRows.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="px-5 py-12 text-center text-sm font-bold text-white/45">
+                    Belum ada match nyata untuk dijadwalkan.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

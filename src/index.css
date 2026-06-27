@@ -40,6 +40,12 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   font-family: var(--font-body);
   background-color: white;
@@ -189,4 +195,3 @@ html {
   line-height: 1.5;
   tab-size: 2;
 }
-

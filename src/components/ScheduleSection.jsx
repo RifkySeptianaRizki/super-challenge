@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import useTournamentStore from "../store/useTournamentStore";
 import TeamLogo from "./TeamLogo";
+import { getRoundStructure, getSchedulableMatches } from "../lib/bracketEngine";
 
 const ROUND_LABELS = {
   R16: "Round of 16",
@@ -35,10 +36,12 @@ function statusLabel(status) {
 function bracketToSchedule(bracket, teamsById) {
   if (!Array.isArray(bracket) || bracket.length === 0) return [];
 
-  const rounds = ["R16", "QF", "SF", "GF"];
+  const bracketSize = bracket.find((match) => match.bracketSize)?.bracketSize || 16;
+  const rounds = getRoundStructure(bracketSize).map((round) => round.round).filter((round, index, list) => list.indexOf(round) === index);
+  const playableMatches = getSchedulableMatches(bracket, bracketSize);
 
   return rounds.map((round) => {
-    const roundMatches = bracket
+    const roundMatches = playableMatches
       .filter((m) => m.round === round)
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 

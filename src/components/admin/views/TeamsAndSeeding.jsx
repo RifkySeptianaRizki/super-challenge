@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Plus, RefreshCw, XCircle, Trash2 } from "lucide-react";
-import { SEED_PAIRINGS, sanitizeTeamCode, sanitizeText } from "../../../lib/bracketEngine";
+import { BYE_SLOT, createBracketSlots, getBracketSize, isByeSlot, sanitizeTeamCode, sanitizeText } from "../../../lib/bracketEngine";
 import { getImageUrlStatus, sanitizeImageUrl } from "../../../lib/imageUtils";
 import TeamLogo from "../../TeamLogo";
 import { AdminButton, AdminPanel, SectionHeader } from "../AdminUI";
@@ -34,6 +34,29 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
   const [teamsDraft, setTeamsDraft] = useState(initialTeams);
   const [logoLoadErrors, setLogoLoadErrors] = useState({});
   const [logoTestKeys, setLogoTestKeys] = useState({});
+  const participantSummary = store.getParticipantSummary();
+  const activeParticipants = participantSummary.activeParticipants;
+  const slotCount = participantSummary.bracketSize || getBracketSize(Math.min(Math.max(store.teams.length, 2), 16)) || 16;
+  const selectableTeams = activeParticipants.length >= 2 ? activeParticipants : store.teams;
+  const previewParticipants = activeSeedIds
+    .slice(0, slotCount)
+    .filter(Boolean)
+    .map((teamId, index) => ({
+      ...(teamsById.get(teamId) || {}),
+      id: teamId,
+      seedNo: index + 1,
+    }));
+  const previewSource = previewParticipants.length >= 2
+    ? previewParticipants
+    : activeParticipants.length >= 2
+      ? activeParticipants
+      : [];
+  const previewSlots = previewSource.length >= 2
+    ? createBracketSlots(previewSource, {
+        participantCount: previewSource.length,
+        byeMode: store.byeMode || "seeded",
+      }).slice(0, slotCount)
+    : Array(slotCount).fill("");
 
   const logoStatuses = useMemo(() => (
     teamsDraft.map((team) => getImageUrlStatus(getLogoValue(team), { allowRelativeAssets: true }))
@@ -167,40 +190,40 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <SectionHeader
         title="Teams & Seeding"
-        description="Atur 16 seed dengan dropdown. Bracket pairing mengikuti standar esports."
+        description={`Atur seed peserta aktif. Bracket saat ini memakai ${slotCount} slot dengan ${participantSummary.byeCount || 0} BYE.`}
         action={
-          <div className="flex flex-wrap gap-3">
-            <AdminButton variant="ghost" onClick={() => setSeedIds(Array(16).fill(""))}>
+          <div className="grid w-full grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:justify-end">
+            <AdminButton className="w-full sm:w-auto" variant="ghost" onClick={() => setSeedIds(Array(slotCount).fill(""))}>
               Clear Seeds
             </AdminButton>
-            <AdminButton variant="secondary" onClick={() => runAction(store.initializeBracketFromStandings, "Bracket generated from standings.")}>
+            <AdminButton className="w-full sm:w-auto" variant="secondary" onClick={() => runAction(store.initializeBracketFromStandings, "Bracket generated from standings.")}>
               From Standings
             </AdminButton>
-            <AdminButton onClick={() => runAction(generateFromSeeds, "Bracket generated from seed list.")}>
+            <AdminButton className="w-full sm:w-auto" onClick={() => runAction(generateFromSeeds, "Bracket generated from seed list.")}>
               Generate Bracket
             </AdminButton>
           </div>
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
         <AdminPanel title="Seed Assignments" caption="Pilih tim untuk tiap posisi seed.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {Array.from({ length: 16 }, (_, index) => {
+          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+            {Array.from({ length: slotCount }, (_, index) => {
               const seedNo = index + 1;
               const teamId = activeSeedIds[index] || "";
               const selectedTeam = teamsById.get(teamId);
               const duplicate = teamId && selectedCounts[teamId] > 1;
               return (
-                <div key={seedNo} className="relative rounded-xl border border-[#731414]/30 bg-[#260505]/60 p-4 transition-all focus-within:border-[#F22738] focus-within:shadow-[0_0_15px_rgba(242,39,56,0.15)]">
+                <div key={seedNo} className="relative min-w-0 rounded-xl border border-[#731414]/30 bg-[#260505]/60 p-4 transition-all focus-within:border-[#F22738] focus-within:shadow-[0_0_15px_rgba(242,39,56,0.15)]">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]">Seed {seedNo}</span>
                     {duplicate && <span className="rounded bg-[#F22738]/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#F22738] animate-pulse">Duplicate</span>}
                   </div>
-                  <div className="mb-3 flex min-h-8 items-center gap-2 rounded-lg border border-[#731414]/30 bg-[#120303]/50 px-2 py-1.5">
+                  <div className="mb-3 flex min-h-8 min-w-0 items-center gap-2 rounded-lg border border-[#731414]/30 bg-[#120303]/50 px-2 py-1.5">
                     <TeamLogo team={selectedTeam} code={selectedTeam?.code || "TBA"} size="xs" variant="subtle" />
                     <span className="truncate text-xs font-black uppercase tracking-wide text-white/80">
                       {selectedTeam ? `${selectedTeam.code} - ${selectedTeam.name}` : "TBA"}
@@ -216,7 +239,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                     className="w-full appearance-none rounded-lg border border-[#731414]/50 bg-[#400C0C] px-3 py-2.5 text-sm font-bold text-white outline-none transition-colors focus:border-[#F2D98D]"
                   >
                     <option value="">Select team</option>
-                    {store.teams.map((team) => (
+                    {selectableTeams.map((team) => (
                       <option
                         key={team.id}
                         value={team.id}
@@ -232,25 +255,33 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
           </div>
         </AdminPanel>
 
-        <AdminPanel title="Pairing Preview" caption="Hasil matchup Round of 16.">
-          <div className="space-y-3">
-            {SEED_PAIRINGS.map((pairing) => {
-              const teamA = teamsById.get(activeSeedIds[pairing.seedA - 1]);
-              const teamB = teamsById.get(activeSeedIds[pairing.seedB - 1]);
+        <AdminPanel title="Pairing Preview" caption={`Hasil matchup first round ${slotCount} slot.`}>
+          <div className="min-w-0 space-y-3">
+            {Array.from({ length: Math.max(1, slotCount / 2) }, (_, matchIndex) => {
+              const slotA = previewSlots[matchIndex * 2];
+              const slotB = previewSlots[matchIndex * 2 + 1];
+              const slotATeamId = typeof slotA === "string" ? slotA : slotA?.teamId;
+              const slotBTeamId = typeof slotB === "string" ? slotB : slotB?.teamId;
+              const teamA = teamsById.get(slotATeamId);
+              const teamB = teamsById.get(slotBTeamId);
+              const seedA = slotA?.seedNo || matchIndex * 2 + 1;
+              const seedB = slotB?.seedNo || matchIndex * 2 + 2;
+              const byeA = slotA === BYE_SLOT || isByeSlot(slotA);
+              const byeB = slotB === BYE_SLOT || isByeSlot(slotB);
               return (
-                <div key={pairing.id} className="group relative overflow-hidden rounded-xl border border-[#731414]/40 bg-gradient-to-r from-[#400C0C]/80 to-[#260505]/80 p-3 shadow-md">
+                <div key={`preview-${matchIndex}`} className="group relative min-w-0 overflow-hidden rounded-xl border border-[#731414]/40 bg-gradient-to-r from-[#400C0C]/80 to-[#260505]/80 p-3 shadow-md">
                   <div className="mb-2 flex items-center gap-2">
                     <div className="h-1.5 w-1.5 rounded-full bg-[#F2D98D]" />
-                    <div className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]">{pairing.id}</div>
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[#F2D98D]">Match {matchIndex + 1}</div>
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-sm font-black text-white">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 text-sm font-black text-white">
                     <div className="flex min-w-0 items-center gap-2">
                       <TeamLogo team={teamA} code={teamA?.code || "TBA"} size="xs" />
-                      <span className="truncate">{teamA?.code ? `S${pairing.seedA} ${teamA.code}` : "TBA"}</span>
+                      <span className="truncate">{byeA ? "BYE" : teamA?.code ? `S${seedA} ${teamA.code}` : "TBA"}</span>
                     </div>
                     <span className="shrink-0 text-xs text-[#F22738]">VS</span>
                     <div className="flex min-w-0 items-center justify-end gap-2 text-right">
-                      <span className="truncate">{teamB?.code ? `S${pairing.seedB} ${teamB.code}` : "TBA"}</span>
+                      <span className="truncate">{byeB ? "BYE" : teamB?.code ? `S${seedB} ${teamB.code}` : "TBA"}</span>
                       <TeamLogo team={teamB} code={teamB?.code || "TBA"} size="xs" />
                     </div>
                   </div>
@@ -265,11 +296,11 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
         title="Team Master Data"
         caption="Upload logo ke Cloudinary, lalu paste URL gambar HTTPS di sini."
         action={
-          <div className="flex flex-wrap gap-2">
-            <AdminButton size="sm" variant="secondary" icon={Plus} onClick={addTeamDraft} disabled={teamsDraft.length >= 16}>
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <AdminButton className="w-full sm:w-auto" size="sm" variant="secondary" icon={Plus} onClick={addTeamDraft} disabled={teamsDraft.length >= 16}>
               Add Team
             </AdminButton>
-            <AdminButton size="sm" onClick={() => runAction(saveTeams, "Teams saved.")} disabled={saveDisabled}>
+            <AdminButton className="w-full sm:w-auto" size="sm" onClick={() => runAction(saveTeams, "Teams saved.")} disabled={saveDisabled}>
               Save Teams
             </AdminButton>
           </div>
@@ -281,7 +312,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid min-w-0 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {teamsDraft.map((team, index) => {
             const seedNo = getSeedValue(team, index + 1);
             const logoStatus = logoStatuses[index];
@@ -291,7 +322,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
             const logoUrl = getLogoValue(team);
 
             return (
-              <div key={teamKey} className="group relative overflow-hidden rounded-2xl border border-[#731414]/30 bg-gradient-to-br from-[#400C0C] to-[#260505] p-4 transition-all hover:-translate-y-1 hover:border-[#F2D98D]/40 hover:shadow-lg">
+              <div key={teamKey} className="group relative min-w-0 overflow-hidden rounded-2xl border border-[#731414]/30 bg-gradient-to-br from-[#400C0C] to-[#260505] p-4 transition-all hover:-translate-y-1 hover:border-[#F2D98D]/40 hover:shadow-lg">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
@@ -320,14 +351,14 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-[1fr_86px] gap-2">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_86px] gap-2">
                     <input
                       value={team.code || ""}
                       placeholder="CODE"
                       onChange={(event) => {
                         updateDraftTeam(index, { code: sanitizeTeamCode(event.target.value) });
                       }}
-                      className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-black uppercase tracking-wider text-white outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                      className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-black uppercase tracking-wider text-white outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                     />
                     <input
                       type="number"
@@ -344,7 +375,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                           sortOrder: nextSeed,
                         });
                       }}
-                      className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-black text-white outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                      className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-black text-white outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                     />
                   </div>
 
@@ -354,7 +385,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                     onChange={(event) => {
                       updateDraftTeam(index, { name: sanitizeText(event.target.value, 60) });
                     }}
-                    className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                    className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                   />
 
                   <input
@@ -364,7 +395,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                       const next = sanitizeText(event.target.value, 80);
                       updateDraftTeam(index, { shortName: next, short_name: next, fullName: next });
                     }}
-                    className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                    className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                   />
 
                   <input
@@ -373,7 +404,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                     onChange={(event) => {
                       updateDraftTeam(index, { city: sanitizeText(event.target.value, 80) });
                     }}
-                    className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                    className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-bold text-white/80 outline-none focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                   />
 
                   <div>
@@ -393,7 +424,7 @@ function TeamsAndSeedingEditor({ store, teamsById, activeSeedIds, selectedCounts
                         });
                         setLogoLoadErrors((current) => ({ ...current, [teamKey]: false }));
                       }}
-                      className="w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-semibold text-white/80 outline-none placeholder:text-white/25 focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
+                      className="min-w-0 w-full rounded-lg border border-[#731414]/50 bg-[#120303]/60 px-3 py-2 text-sm font-semibold text-white/80 outline-none placeholder:text-white/25 focus:border-[#F2D98D] focus:ring-1 focus:ring-[#F2D98D]/20"
                     />
                     <p className="mt-1.5 text-[10px] font-semibold leading-relaxed text-white/40">
                       Upload logo ke Cloudinary, lalu paste URL gambar HTTPS di sini.

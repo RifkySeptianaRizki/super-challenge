@@ -10,6 +10,7 @@ import {
   Shuffle,
   Swords,
   Users,
+  UserCheck,
 } from "lucide-react";
 
 import { AdminShell } from "./admin/AdminUI";
@@ -18,6 +19,7 @@ import { getChampion, validateBracketSchema } from "../lib/bracketEngine";
 
 // Import Views
 import Overview from "./admin/views/Overview";
+import ParticipantsFormat from "./admin/views/ParticipantsFormat";
 import TeamsAndSeeding from "./admin/views/TeamsAndSeeding";
 import DrawAndSeeding from "./admin/views/DrawAndSeeding";
 import BracketControl from "./admin/views/BracketControl";
@@ -28,6 +30,7 @@ import AuditLogs from "./admin/views/AuditLogs";
 
 const tabs = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "participants", label: "Participants & Format", icon: UserCheck },
   { id: "seeding", label: "Teams", icon: Users },
   { id: "draw", label: "Draw & Seeding", icon: Shuffle },
   { id: "bracket", label: "Bracket Control", icon: Swords },
@@ -57,9 +60,11 @@ export default function AdminDashboard({ onLogout, adminUser }) {
   const champion = championId ? teamsById.get(championId) : null;
 
   const currentSeeds = useMemo(() => {
-    const seeds = Array(16).fill("");
+    const firstRound = store.bracket.find((match) => !match.sourceMatchA && !match.sourceMatchB)?.round || "R16";
+    const slotCount = store.bracket.filter((match) => match.round === firstRound).length * 2 || 16;
+    const seeds = Array(slotCount).fill("");
     store.bracket
-      .filter((match) => match.round === "R16")
+      .filter((match) => match.round === firstRound)
       .forEach((match) => {
         if (match.teamASeed) seeds[match.teamASeed - 1] = match.teamAId || "";
         if (match.teamBSeed) seeds[match.teamBSeed - 1] = match.teamBId || "";
@@ -117,8 +122,12 @@ export default function AdminDashboard({ onLogout, adminUser }) {
   const generateFromSeeds = () => {
     const selected = activeSeedIds.filter(Boolean);
     const unique = new Set(selected);
-    if (selected.length !== 16) {
-      throw new Error("Semua 16 seed harus dipilih sebelum generate bracket.");
+    const participantCount = store.getActiveParticipants().length;
+    if (participantCount < 2 || participantCount > 16) {
+      throw new Error("Pilih 2 sampai 16 peserta aktif sebelum generate bracket.");
+    }
+    if (selected.length !== participantCount) {
+      throw new Error(`Semua ${participantCount} peserta aktif harus dipilih sebelum generate bracket.`);
     }
     if (unique.size !== selected.length) {
       throw new Error("Satu tim tidak boleh dipilih di lebih dari satu seed.");
@@ -151,6 +160,8 @@ export default function AdminDashboard({ onLogout, adminUser }) {
     switch (activeTab) {
       case "overview":
         return <Overview store={store} validation={validation} champion={champion} teamsById={teamsById} />;
+      case "participants":
+        return <ParticipantsFormat store={store} runAction={runAction} />;
       case "seeding":
         return <TeamsAndSeeding store={store} teamsById={teamsById} activeSeedIds={activeSeedIds} selectedCounts={selectedCounts} setSeedIds={setSeedIds} runAction={runAction} generateFromSeeds={generateFromSeeds} />;
       case "draw":

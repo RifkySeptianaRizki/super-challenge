@@ -22,54 +22,60 @@ export default function AdminSidebar({
   isMobile,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const closeSidebar = () => setIsOpen(false);
 
   const filteredTabs = tabs.filter((tab) =>
     tab.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const asideWidth = isMobile
-    ? "w-[85vw] max-w-[320px]"
-    : isOpen
-      ? "w-[360px]"
-      : "w-[80px]";
-
-  // Pastikan kelas transform tidak dihapus oleh tailwind-merge
-  const baseClasses = cn(
-    "relative flex h-full flex-col rounded-r-[35px] border-r border-[#731414]/30 bg-[#120303]/90 backdrop-blur-xl text-white transition-[width,transform] duration-300 ease-in-out z-50",
-    asideWidth
+  const asideClasses = cn(
+    "z-50 flex min-h-0 flex-col border-r border-[#731414]/30 bg-[#120303]/95 text-white shadow-2xl shadow-black/40 backdrop-blur-xl",
+    isMobile
+      ? "fixed inset-y-0 h-dvh w-[280px] max-w-[86vw] rounded-r-2xl transition-[left] duration-300 ease-out"
+      : "relative h-full rounded-r-[35px] transition-[width] duration-300 ease-in-out",
+    isMobile
+      ? isOpen
+        ? "left-0"
+        : "pointer-events-none -left-[280px]"
+      : isOpen
+        ? "w-[320px] xl:w-[360px]"
+        : "w-[80px]"
   );
-  
-  const mobileClasses = isMobile ? " fixed inset-y-0 left-0 shadow-2xl shadow-black/50" : "";
-  const transformClasses = isMobile && !isOpen ? " -translate-x-full pointer-events-none" : " translate-x-0";
+  const expanded = isOpen || isMobile;
 
   return (
     <>
       {/* Mobile Backdrop */}
       {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
-          onClick={() => setIsOpen(false)}
+        <button
+          type="button"
+          className="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm lg:hidden"
+          onClick={closeSidebar}
+          aria-label="Tutup menu admin"
         />
       )}
 
       {/* Sidebar Wrapper */}
       <aside
-        className={`${baseClasses}${mobileClasses}${transformClasses}`}
+        className={asideClasses}
         aria-hidden={isMobile && !isOpen}
+        aria-modal={isMobile && isOpen ? "true" : undefined}
+        role={isMobile ? "dialog" : "navigation"}
       >
-        <div className="relative flex h-full flex-1">
+        <div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
           {/* LEFT ICON RAIL */}
-          <div className="flex w-[72px] shrink-0 flex-col items-center justify-between rounded-r-[28px] bg-[#0a0101]/80 pb-5 pt-4 shadow-2xl sm:w-[80px] sm:rounded-r-[35px] sm:pb-6 sm:pt-5 z-20">
+          <div className="z-20 flex w-[64px] shrink-0 flex-col items-center justify-between rounded-r-2xl bg-[#0a0101]/80 pb-4 pt-4 shadow-2xl sm:w-[72px] sm:pb-5 lg:w-[80px] lg:rounded-r-[35px] lg:pb-6 lg:pt-5">
             <div className="flex flex-col items-center gap-4">
               {/* logo */}
               <Link
                 to="/"
-                className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl transition-all sm:h-14 sm:w-14"
+                onClick={isMobile ? closeSidebar : undefined}
+                className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl transition-all sm:h-12 sm:w-12 lg:h-14 lg:w-14"
               >
                 <img
                   src="/super-ml-logo.png"
                   alt="SC"
-                  className="relative z-10 h-9 w-9 object-contain sm:h-10 sm:w-10"
+                  className="relative z-10 h-8 w-8 object-contain sm:h-9 sm:w-9 lg:h-10 lg:w-10"
                 />
               </Link>
 
@@ -93,6 +99,7 @@ export default function AdminSidebar({
               <nav className="mt-3 flex flex-col items-center gap-2.5 sm:mt-4 sm:gap-3">
                 <Link
                   to="/"
+                  onClick={isMobile ? closeSidebar : undefined}
                   className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F2D98D] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#731414] sm:h-12 sm:w-12"
                 >
                   <Home className="relative z-10 h-5 w-5" />
@@ -115,7 +122,10 @@ export default function AdminSidebar({
             {/* settings bottom */}
             <div className="flex flex-col items-center gap-3">
               <button
-                onClick={onLogout}
+                onClick={() => {
+                  closeSidebar();
+                  onLogout?.();
+                }}
                 type="button"
                 className="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#260505] text-[#F22738] shadow-sm ring-1 ring-[#731414]/50 hover:bg-[#F22738] hover:text-white sm:h-12 sm:w-12"
               >
@@ -125,20 +135,21 @@ export default function AdminSidebar({
           </div>
 
           {/* RIGHT PANEL – panel menu */}
-          {(isOpen || isMobile) && (
-            <div className="flex min-w-0 flex-1 flex-col px-3 pb-5 pt-4 sm:px-4 sm:pb-6 sm:pt-5">
+          {expanded && (
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden px-3 pb-4 pt-4 sm:px-4 sm:pb-5 lg:pb-6 lg:pt-5">
               {/* header kecil */}
-              <div className="mb-4 mt-0 flex items-center justify-between gap-2 px-1 sm:mb-6 sm:px-2">
+              <div className="mb-4 mt-0 flex min-w-0 items-center justify-between gap-2 px-1 sm:mb-5 sm:px-2 lg:mb-6">
                 <img
                   src="/superchallange-lanjang.png"
                   alt="Super Challenge"
-                  className="h-7 max-w-[150px] object-contain sm:h-8 sm:max-w-none"
+                  className="h-7 min-w-0 max-w-[140px] object-contain sm:h-8 sm:max-w-[150px] lg:max-w-none"
                 />
 
                 {isMobile && (
                   <button
-                    onClick={() => setIsOpen(false)}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#260505] text-white/50 shadow-sm ring-1 ring-[#731414] hover:text-white"
+                    onClick={closeSidebar}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#260505] text-white/50 shadow-sm ring-1 ring-[#731414] hover:text-white"
+                    aria-label="Tutup menu admin"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -146,18 +157,18 @@ export default function AdminSidebar({
               </div>
 
               {/* kartu utama: menu list */}
-              <div className="relative -m-1 flex h-full flex-1 flex-col rounded-3xl border border-[#731414]/30 bg-[#260505]/40 shadow-xl overflow-hidden">
-                <div className="relative z-10 flex h-full flex-col">
+              <div className="relative -m-1 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#731414]/30 bg-[#260505]/40 shadow-xl lg:rounded-3xl">
+                <div className="relative z-10 flex min-h-0 flex-1 flex-col">
                   {/* search */}
                   <div className="border-b border-[#731414]/30 px-3 pb-3 pt-3">
                     <div className="flex items-center rounded-2xl bg-[#120303]/80 px-3 py-2 text-xs text-white/60 ring-1 ring-[#731414]/40">
-                      <Search className="mr-2 h-4 w-4 text-[#F22738]" />
+                      <Search className="mr-2 h-4 w-4 shrink-0 text-[#F22738]" />
                       <input
                         type="text"
                         placeholder="Cari menu..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/30"
+                        className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-white/30"
                       />
                     </div>
                   </div>
@@ -173,10 +184,10 @@ export default function AdminSidebar({
                             key={tab.id}
                             onClick={() => {
                               onTabChange(tab.id);
-                              if (isMobile) setIsOpen(false);
+                              if (isMobile) closeSidebar();
                             }}
                             className={cn(
-                              "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 transition-all duration-200",
+                              "group flex w-full min-w-0 items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-200",
                               active
                                 ? "bg-[#731414]/40 text-white shadow-inner"
                                 : "text-white/60 hover:bg-[#400C0C]/40 hover:text-white"
@@ -192,7 +203,7 @@ export default function AdminSidebar({
                             >
                               <Icon size={18} />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-wider">
+                            <span className="min-w-0 truncate text-xs font-bold uppercase tracking-wider">
                               {tab.label}
                             </span>
                           </button>
@@ -207,7 +218,7 @@ export default function AdminSidebar({
 
                   {/* Status Card At Bottom of Sidebar Glass */}
                   <div className="p-4 border-t border-[#731414]/30 bg-[#120303]/40">
-                    <div className="flex items-center justify-between">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
                       <span className="text-[10px] font-black uppercase text-[#F2D98D] tracking-widest">
                         Sys. Status
                       </span>

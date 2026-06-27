@@ -11,9 +11,12 @@ import {
 } from "../lib/storage";
 import {
   createInitialBracketFromStandings,
-  createInitialBracketFromTeams,
+  createBracketSlots,
+  createFlexibleSpinDraw,
   createRandomDrawSlots,
   createTournamentConfig,
+  getBracketSize,
+  getByeCount,
   recalculateBracket,
   resetBracketResults as resetBracketResultsEngine,
   updateMatchResult,
@@ -21,20 +24,21 @@ import {
 } from "../lib/bracketEngine";
 import {
   SETTINGS_KEYS,
-  applyManualBracketDraw,
-  applySpinBracketDraw,
+  applyFlexibleManualDraw,
+  applyFlexibleSpinDraw,
   clearMatchResult,
   exportSupabaseData,
   generateBracketFromSeeds as generateBracketFromSeedsApi,
+  generateFlexibleBracket as generateFlexibleBracketApi,
   getAdminTournamentData,
   getPublicTournamentData,
   importLegacyData,
   resetBracketResults as resetBracketResultsApi,
-  seedListToBracketSlots,
   setMatchResult,
   updateMatchMeta,
   updateSiteSetting,
   updateTeam,
+  updateTournamentParticipants as updateTournamentParticipantsApi,
   deleteTeam as deleteTeamApi,
   updateTournamentSeriesFormat as updateTournamentSeriesFormatApi,
   upsertTeam,
@@ -90,6 +94,31 @@ const hasCompletedResults = (bracket) => (
 
 const getTournamentId = (state) => state.tournament?.id || state.tournamentConfig?.id;
 
+const getActiveParticipants = (teams) => (
+  (Array.isArray(teams) ? teams : [])
+    .filter((team) => team?.id && team.isActive !== false && team.is_participant !== false && team.isParticipant !== false && team.dropped !== true)
+    .sort((a, b) => {
+      const seedA = Number(a.seedNo ?? a.seed_no ?? a.rank ?? a.sortOrder ?? a.sort_order ?? 999);
+      const seedB = Number(b.seedNo ?? b.seed_no ?? b.rank ?? b.sortOrder ?? b.sort_order ?? 999);
+      if (seedA !== seedB) return seedA - seedB;
+      return String(a.code || "").localeCompare(String(b.code || ""));
+    })
+);
+
+const getParticipantSummary = (teams) => {
+  const activeParticipants = getActiveParticipants(teams);
+  const participantCount = activeParticipants.length;
+  const bracketSize = getBracketSize(participantCount) || 0;
+  const byeCount = participantCount >= 2 ? getByeCount(participantCount) : 0;
+  return {
+    activeParticipants,
+    participantCount,
+    bracketSize,
+    byeCount,
+    playableMatches: participantCount >= 2 ? participantCount - 1 : 0,
+  };
+};
+
 const normalizeSeedNo = (value, fallback) => {
   const parsed = Number(value);
   if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 16) return parsed;
@@ -104,6 +133,7 @@ const useTournamentStore = create((set, get) => ({
   isOnlineMode: true,
   cacheStatus: initialData?.cacheUpdatedAt ? "cache" : "default",
   drawMode: "manual",
+  byeMode: "seeded",
   manualDrawSlots: [],
   spinDrawPreview: null,
   adminOpen: false,
@@ -248,6 +278,39 @@ const useTournamentStore = create((set, get) => ({
     }
   },
 
+  updateTournamentParticipants: async (teamIds) => {
+    const state = get();
+    const tournamentId = getTournamentId(state);
+    if (!tournamentId) throw new Error("Tournament aktif tidak ditemukan.");
+    const uniqueTeamIds = [...new Set(Array.isArray(teamIds) ? teamIds.filter(Boolean) : [])];
+    if (uniqueTeamIds.length < 2 || uniqueTeamIds.length > 16) {
+      throw new Error("Jumlah peserta aktif harus 2 sampai 16 tim.");
+    }
+    set({ saving: true, error: null });
+    try {
+      await updateTournamentParticipantsApi(tournamentId, uniqueTeamIds);
+      await get().refreshAdminData();
+    } catch (error) {
+      set({ error: error.message });
+      throw error;
+    } finally {
+      set({ saving: false });
+    }
+  },
+
+  setTeamParticipantState: async (teamId, payload) => {
+    const current = get().teams.find((team) => team.id === teamId);
+    if (!current) throw new Error("Team tidak ditemukan.");
+    return get().updateTeam(teamId, {
+      ...current,
+      isParticipant: payload.isParticipant ?? payload.is_participant ?? current.isParticipant,
+      is_participant: payload.isParticipant ?? payload.is_participant ?? current.is_participant,
+      checkedIn: payload.checkedIn ?? payload.checked_in ?? current.checkedIn,
+      checked_in: payload.checkedIn ?? payload.checked_in ?? current.checked_in,
+      dropped: payload.dropped ?? current.dropped,
+    });
+  },
+
   deleteTeam: async (teamId) => {
     set({ saving: true, error: null });
     try {
@@ -325,20 +388,24 @@ const useTournamentStore = create((set, get) => ({
 
   initializeBracketFromTeams: async () => {
     const state = get();
-    const bracket = createInitialBracketFromTeams(state.teams, state.tournamentConfig.bestOf);
-    const slots = bracket
-      .filter((match) => match.round === "R16")
-      .flatMap((match) => [match.teamAId, match.teamBId]);
-    return get().applyManualDraw(slots, state.tournamentConfig.bestOf, { keepSchedule: true });
+    const participants = getActiveParticipants(state.teams);
+    return get().generateFlexibleBracket(state.byeMode || "seeded", participants.map((team) => team.id));
   },
 
   initializeBracketFromStandings: async () => {
     const state = get();
-    const bracket = createInitialBracketFromStandings(state.standings, state.teams, state.tournamentConfig.bestOf);
+    const bracket = createInitialBracketFromStandings(state.standings, getActiveParticipants(state.teams), state.tournamentConfig.bestOf);
     const slots = bracket
-      .filter((match) => match.round === "R16")
-      .flatMap((match) => [match.teamAId, match.teamBId]);
-    return get().applyManualDraw(slots, state.tournamentConfig.bestOf, { keepSchedule: true });
+      .filter((match) => !match.sourceMatchA && !match.sourceMatchB)
+      .flatMap((match) => [
+        match.teamAIsBye ? "BYE" : match.teamAId,
+        match.teamBIsBye ? "BYE" : match.teamBId,
+      ]);
+    return get().applyManualDraw(slots, state.tournamentConfig.bestOf, {
+      keepSchedule: true,
+      participantTeamIds: getActiveParticipants(state.teams).map((team) => team.id),
+      byeMode: "seeded",
+    });
   },
 
   updateBracketMatchScore: async (matchId, scoreA, scoreB) => {
@@ -404,13 +471,29 @@ const useTournamentStore = create((set, get) => ({
   },
 
   setBracketSeeds: async (seeds) => {
-    const seedTeamIds = Array(16).fill("");
+    const state = get();
+    const activeParticipants = getActiveParticipants(state.teams);
+    const participantCount = activeParticipants.length;
+    if (participantCount < 2 || participantCount > 16) {
+      throw new Error("Jumlah peserta aktif harus 2 sampai 16 tim.");
+    }
+    const seedTeamIds = Array(getBracketSize(participantCount) || 16).fill("");
     seeds.forEach((seed) => {
       const seedNo = Number(seed.seedNo);
-      if (seedNo >= 1 && seedNo <= 16) seedTeamIds[seedNo - 1] = seed.teamId;
+      if (seedNo >= 1 && seedNo <= seedTeamIds.length) seedTeamIds[seedNo - 1] = seed.teamId;
     });
-    const slots = seedListToBracketSlots(seedTeamIds);
-    return get().applyManualDraw(slots, get().tournamentConfig.bestOf, { keepSchedule: true });
+    const orderedParticipants = seedTeamIds
+      .filter(Boolean)
+      .map((teamId, index) => ({
+        ...(state.teams.find((team) => team.id === teamId) || {}),
+        id: teamId,
+        seedNo: index + 1,
+      }));
+    const slots = createBracketSlots(orderedParticipants, {
+      participantCount,
+      byeMode: state.byeMode || "seeded",
+    });
+    return get().applyManualDraw(slots, state.tournamentConfig.bestOf, { keepSchedule: true, byeMode: state.byeMode || "seeded" });
   },
 
   generateBracketFromSeeds: async () => {
@@ -445,14 +528,34 @@ const useTournamentStore = create((set, get) => ({
 
   setDrawMode: (drawMode) => set({ drawMode }),
 
+  setByeMode: (byeMode) => set({ byeMode }),
+
   setManualDrawSlots: (manualDrawSlots) => set({ manualDrawSlots }),
 
+  getParticipantSummary: () => getParticipantSummary(get().teams),
+
+  getActiveParticipants: () => getActiveParticipants(get().teams),
+
   validateDrawSlots: (slots = get().manualDrawSlots) => (
-    validateDrawSlotsEngine(slots, get().teams)
+    validateDrawSlotsEngine(slots, getActiveParticipants(get().teams), {
+      participantCount: getActiveParticipants(get().teams).length,
+    })
   ),
 
-  previewSpinDraw: () => {
-    const slots = createRandomDrawSlots(get().teams);
+  previewSpinDraw: (options = {}) => {
+    const state = get();
+    const participants = getActiveParticipants(state.teams);
+    const preview = createFlexibleSpinDraw(participants, {
+      bestOf: state.tournamentConfig?.bestOf || 3,
+      byeMode: options.byeMode || state.byeMode || "random",
+      seed: options.seed,
+    });
+    set({ spinDrawPreview: preview });
+    return preview;
+  },
+
+  previewLegacySpinDraw: () => {
+    const slots = createRandomDrawSlots(getActiveParticipants(get().teams));
     const preview = {
       slots,
       createdAt: new Date().toISOString(),
@@ -472,11 +575,24 @@ const useTournamentStore = create((set, get) => ({
     const state = get();
     const tournamentId = getTournamentId(state);
     if (!tournamentId) throw new Error("Tournament aktif tidak ditemukan.");
-    const validation = validateDrawSlotsEngine(slots, state.teams);
+    const participants = getActiveParticipants(state.teams);
+    const participantTeamIds = options.participantTeamIds || participants.map((team) => team.id);
+    const validation = validateDrawSlotsEngine(slots, participants, {
+      participantCount: participantTeamIds.length,
+    });
     if (!validation.valid) throw new Error(validation.errors.join(" "));
     set({ saving: true, error: null });
     try {
-      const bracket = await applyManualBracketDraw(tournamentId, bestOf, validation.slots, options);
+      const bracket = await applyFlexibleManualDraw(
+        tournamentId,
+        bestOf,
+        participantTeamIds,
+        validation.slots,
+        {
+          ...options,
+          byeMode: options.byeMode || state.byeMode || "manual",
+        }
+      );
       set({ bracket, manualDrawSlots: validation.slots, saving: false });
       await get().refreshAdminData();
       return get().bracket;
@@ -490,11 +606,49 @@ const useTournamentStore = create((set, get) => ({
     const state = get();
     const tournamentId = getTournamentId(state);
     if (!tournamentId) throw new Error("Tournament aktif tidak ditemukan.");
-    const validation = validateDrawSlotsEngine(slots, state.teams);
+    const participants = getActiveParticipants(state.teams);
+    const participantTeamIds = options.participantTeamIds || participants.map((team) => team.id);
+    const validation = validateDrawSlotsEngine(slots, participants, {
+      participantCount: participantTeamIds.length,
+    });
     if (!validation.valid) throw new Error(validation.errors.join(" "));
     set({ saving: true, error: null });
     try {
-      const bracket = await applySpinBracketDraw(tournamentId, bestOf, validation.slots, metadata, options);
+      const bracket = await applyFlexibleSpinDraw(
+        tournamentId,
+        bestOf,
+        participantTeamIds,
+        validation.slots,
+        metadata,
+        {
+          ...options,
+          byeMode: options.byeMode || state.byeMode || "random",
+        }
+      );
+      set({ bracket, spinDrawPreview: null, saving: false });
+      await get().refreshAdminData();
+      return get().bracket;
+    } catch (error) {
+      set({ saving: false, error: error.message });
+      throw error;
+    }
+  },
+
+  generateFlexibleBracket: async (byeMode = get().byeMode || "seeded", participantTeamIds = null) => {
+    const state = get();
+    const tournamentId = getTournamentId(state);
+    if (!tournamentId) throw new Error("Tournament aktif tidak ditemukan.");
+    const participants = getActiveParticipants(state.teams);
+    const ids = participantTeamIds || participants.map((team) => team.id);
+    if (ids.length < 2 || ids.length > 16) throw new Error("Jumlah peserta aktif harus 2 sampai 16 tim.");
+    set({ saving: true, error: null, byeMode });
+    try {
+      const bracket = await generateFlexibleBracketApi(
+        tournamentId,
+        state.tournamentConfig?.bestOf || 3,
+        ids,
+        byeMode
+      );
       set({ bracket, spinDrawPreview: null, saving: false });
       await get().refreshAdminData();
       return get().bracket;

@@ -1,10 +1,11 @@
 import { defaultTournamentData } from "../data/defaultData";
 import { getSupabaseClient } from "../lib/supabaseClient";
 import {
-  MATCH_DEFINITIONS,
+  BYE_SLOT,
   SEED_PAIRINGS,
   createInitialBracketFromTeams,
   createTournamentConfig,
+  getRoundStructure,
   recalculateBracket,
   sanitizeTeamCode,
   sanitizeText,
@@ -52,6 +53,16 @@ export function normalizeTournament(row) {
     requiredWins: row.required_wins,
     totalTeams: row.total_teams,
     totalMatches: row.total_matches,
+    participantCount: row.participant_count ?? row.total_teams,
+    participant_count: row.participant_count ?? row.total_teams,
+    bracketSize: row.bracket_size ?? row.total_teams,
+    bracket_size: row.bracket_size ?? row.total_teams,
+    byeCount: row.bye_count ?? 0,
+    bye_count: row.bye_count ?? 0,
+    maxTeams: row.max_teams ?? 16,
+    max_teams: row.max_teams ?? 16,
+    minTeams: row.min_teams ?? 2,
+    min_teams: row.min_teams ?? 2,
     status: row.status,
     timezone: row.timezone,
     isActive: row.is_active,
@@ -87,6 +98,11 @@ export function normalizeTeamFromDb(row) {
     color: metadata.color || "#F22738",
     record: metadata.record || "0 - 0",
     isActive: row.is_active !== false,
+    isParticipant: row.is_participant !== false,
+    is_participant: row.is_participant !== false,
+    checkedIn: row.checked_in !== false,
+    checked_in: row.checked_in !== false,
+    dropped: Boolean(row.dropped),
     sortOrder: row.sort_order ?? 0,
     metadata,
     updatedAt: row.updated_at,
@@ -111,6 +127,15 @@ export function normalizeMatch(row) {
     teamBId: row.team_b_id,
     teamASeed: row.team_a_seed,
     teamBSeed: row.team_b_seed,
+    slotAType: row.slot_a_type || (row.team_a_is_bye ? "bye" : row.team_a_id ? "team" : "empty"),
+    slotBType: row.slot_b_type || (row.team_b_is_bye ? "bye" : row.team_b_id ? "team" : "empty"),
+    teamAIsBye: Boolean(row.team_a_is_bye),
+    teamBIsBye: Boolean(row.team_b_is_bye),
+    autoAdvanced: Boolean(row.auto_advanced),
+    playable: row.playable !== false,
+    bracketSize: row.bracket_size ?? 16,
+    participantCount: row.participant_count ?? 16,
+    byeReason: row.bye_reason || "",
     scoreA: row.score_a ?? 0,
     scoreB: row.score_b ?? 0,
     winnerTeamId: row.winner_team_id,
@@ -165,7 +190,7 @@ function composeTournamentData({ tournament, teams, bracket, settingsRows, audit
     },
     siteSettings,
     bracket: normalizedBracket.length
-      ? recalculateBracket(normalizedBracket)
+      ? recalculateBracket(normalizedBracket, { bracketSize: tournament?.bracket_size, participantCount: tournament?.participant_count })
       : createInitialBracketFromTeams(finalTeams),
     auditLogs,
     lastSyncedAt: new Date().toISOString(),
@@ -290,6 +315,9 @@ export function mapTeamToDbPayload(team, tournamentId) {
     seed_no: seedNo,
     sort_order: sortOrder,
     is_active: team.isActive !== false,
+    is_participant: team.isParticipant ?? team.is_participant ?? true,
+    checked_in: team.checkedIn ?? team.checked_in ?? true,
+    dropped: Boolean(team.dropped),
     metadata: {
       ...(team.metadata || {}),
       color: team.color || team.metadata?.color || "#F22738",
@@ -397,6 +425,27 @@ export async function generateBracketFromSeeds(tournamentId) {
   return rpcBracket("generate_bracket_from_seeds", { p_tournament_id: tournamentId });
 }
 
+export async function updateTournamentParticipants(tournamentId, teamIds) {
+  const client = requireClient();
+  const { data, error } = await client.rpc("update_tournament_participants", {
+    p_tournament_id: tournamentId,
+    p_team_ids: teamIds,
+  });
+  throwIfError(error, "Gagal update participants.");
+  if (Array.isArray(data)) return recalculateBracket(data.map(normalizeMatch));
+  const tournament = await getActiveTournament();
+  return getBracketMatches(tournament.id).then((rows) => recalculateBracket(rows.map(normalizeMatch)));
+}
+
+export async function generateFlexibleBracket(tournamentId, bestOf, participantTeamIds, byeMode = "seeded") {
+  return rpcBracket("generate_flexible_bracket", {
+    p_tournament_id: tournamentId,
+    p_best_of: Number(bestOf),
+    p_participant_team_ids: participantTeamIds,
+    p_bye_mode: byeMode,
+  });
+}
+
 export function seedListToBracketSlots(seedTeamIds) {
   return SEED_PAIRINGS.flatMap((pairing) => [
     seedTeamIds[pairing.seedA - 1],
@@ -405,10 +454,31 @@ export function seedListToBracketSlots(seedTeamIds) {
 }
 
 export async function applyManualBracketDraw(tournamentId, bestOf, slots, options = {}) {
+  if (options.flexible) {
+    return rpcBracket("apply_flexible_manual_draw", {
+      p_tournament_id: tournamentId,
+      p_best_of: Number(bestOf),
+      p_participant_team_ids: options.participantTeamIds || [],
+      p_slots: slots,
+      p_bye_mode: options.byeMode || "seeded",
+      p_keep_schedule: options.keepSchedule !== false,
+    });
+  }
   return rpcBracket("apply_manual_bracket_draw", {
     p_tournament_id: tournamentId,
     p_best_of: Number(bestOf),
     p_slots: slots,
+    p_keep_schedule: options.keepSchedule !== false,
+  });
+}
+
+export async function applyFlexibleManualDraw(tournamentId, bestOf, participantTeamIds, slots, options = {}) {
+  return rpcBracket("apply_flexible_manual_draw", {
+    p_tournament_id: tournamentId,
+    p_best_of: Number(bestOf),
+    p_participant_team_ids: participantTeamIds,
+    p_slots: slots,
+    p_bye_mode: options.byeMode || "manual",
     p_keep_schedule: options.keepSchedule !== false,
   });
 }
@@ -420,10 +490,40 @@ export async function applySpinBracketDraw(
   metadata = {},
   options = {}
 ) {
+  if (options.flexible) {
+    return rpcBracket("apply_flexible_spin_draw", {
+      p_tournament_id: tournamentId,
+      p_best_of: Number(bestOf),
+      p_participant_team_ids: options.participantTeamIds || [],
+      p_slots: slots,
+      p_bye_mode: options.byeMode || "random",
+      p_draw_metadata: metadata,
+      p_keep_schedule: options.keepSchedule !== false,
+    });
+  }
   return rpcBracket("apply_spin_bracket_draw", {
     p_tournament_id: tournamentId,
     p_best_of: Number(bestOf),
     p_slots: slots,
+    p_draw_metadata: metadata,
+    p_keep_schedule: options.keepSchedule !== false,
+  });
+}
+
+export async function applyFlexibleSpinDraw(
+  tournamentId,
+  bestOf,
+  participantTeamIds,
+  slots,
+  metadata = {},
+  options = {}
+) {
+  return rpcBracket("apply_flexible_spin_draw", {
+    p_tournament_id: tournamentId,
+    p_best_of: Number(bestOf),
+    p_participant_team_ids: participantTeamIds,
+    p_slots: slots,
+    p_bye_mode: options.byeMode || "random",
     p_draw_metadata: metadata,
     p_keep_schedule: options.keepSchedule !== false,
   });
@@ -470,18 +570,33 @@ export async function importLegacyData(payload) {
     updateSiteSetting(SETTINGS_KEYS.settings, data.settings),
   ]);
 
-  const r16Slots = MATCH_DEFINITIONS
-    .filter((match) => match.round === "R16")
-    .flatMap((definition) => {
-      const match = data.bracket.find((item) => item.id === definition.id);
-      return [match?.teamAId, match?.teamBId];
-    });
+  const activeParticipantIds = data.teams
+    .filter((team) => team.isActive !== false && team.is_participant !== false && team.isParticipant !== false && team.dropped !== true)
+    .map((team) => team.id);
+  const config = createTournamentConfig({
+    ...data.tournamentConfig,
+    participantCount: activeParticipantIds.length >= 2 ? activeParticipantIds.length : data.tournamentConfig?.participantCount,
+  });
+  const firstRound = getRoundStructure(config.bracketSize)[0]?.round || "R16";
+  const importedBracket = recalculateBracket(data.bracket, config);
+  const firstRoundSlots = importedBracket
+    .filter((match) => match.round === firstRound)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .flatMap((match) => [
+      match.teamAIsBye || match.slotAType === "bye" ? BYE_SLOT : match.teamAId,
+      match.teamBIsBye || match.slotBType === "bye" ? BYE_SLOT : match.teamBId,
+    ]);
 
   await applyManualBracketDraw(
     tournament.id,
-    data.tournamentConfig?.bestOf || 3,
-    r16Slots,
-    { keepSchedule: true }
+    config.bestOf || 3,
+    firstRoundSlots,
+    {
+      flexible: true,
+      participantTeamIds: activeParticipantIds,
+      byeMode: "manual",
+      keepSchedule: true,
+    }
   );
 
   for (const match of data.bracket) {

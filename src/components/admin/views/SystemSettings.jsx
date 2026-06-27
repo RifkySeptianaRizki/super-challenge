@@ -24,18 +24,18 @@ export default function SystemSettings({ store, runAction }) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <SectionHeader
         title="System Settings"
         description="Pengaturan public site dan konfigurasi global turnamen."
         action={
-          <AdminButton onClick={() => runAction(save, "Settings saved.")}>
+          <AdminButton className="w-full sm:w-auto" onClick={() => runAction(save, "Settings saved.")}>
             <Save size={16} /> Save Changes
           </AdminButton>
         }
       />
       
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         <AdminPanel title="Tournament Format" caption="Format standar series untuk keseluruhan event." icon={Settings2}>
           <div className="flex flex-col gap-6">
             <label className="block">
@@ -56,12 +56,12 @@ export default function SystemSettings({ store, runAction }) {
               </div>
             </label>
             
-            <label className="relative flex cursor-pointer items-center justify-between rounded-xl border border-[#731414]/30 bg-[#260505]/40 p-5 transition-all hover:border-[#F2D98D]/40">
-              <span className="flex flex-col gap-1">
-                <span className="text-sm font-black uppercase tracking-wide text-white">Public Admin Button</span>
-                <span className="text-xs font-medium text-white/50">Tampilkan tombol Admin di navbar halaman public.</span>
+            <label className="relative flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-[#731414]/30 bg-[#260505]/40 p-4 transition-all hover:border-[#F2D98D]/40 sm:p-5">
+              <span className="flex min-w-0 flex-col gap-1">
+                <span className="break-words text-sm font-black uppercase tracking-wide text-white">Public Admin Button</span>
+                <span className="break-words text-xs font-medium text-white/50">Tampilkan tombol Admin di navbar halaman public.</span>
               </span>
-              <div className="relative">
+              <div className="relative shrink-0">
                 <input 
                   type="checkbox" 
                   checked={Boolean(settings?.showAdminButton)} 
@@ -83,7 +83,7 @@ export default function SystemSettings({ store, runAction }) {
               ["Timezone Label", "timezone", "WIB"],
               ["Hero Title", "heroTitle", "The Ultimate Esports Battle"],
             ].map(([label, key, placeholder]) => (
-              <label key={key} className="block relative">
+              <label key={key} className="relative block min-w-0">
                 <span className="absolute -top-2.5 left-3 bg-[#400C0C] px-1 text-[10px] font-black uppercase tracking-widest text-[#F2D98D]/70">{label}</span>
                 <input 
                   value={siteConfig?.[key] || ""} 

@@ -8,7 +8,7 @@
  * No extra state is introduced; standings are always derived/computed.
  */
 
-import { ROUND_ORDER } from "./bracketEngine";
+import { ROUND_ORDER, isAutoAdvanceMatch } from "./bracketEngine";
 
 // ── Round progress scores (higher = better) ────────────────────────────
 
@@ -29,7 +29,7 @@ const ROUND_PROGRESS = {
 /** Returns all completed matches from the bracket. */
 export function getCompletedMatches(bracket) {
   if (!Array.isArray(bracket)) return [];
-  return bracket.filter((m) => m.status === "completed" && m.winnerTeamId);
+  return bracket.filter((m) => m.status === "completed" && m.winnerTeamId && !isAutoAdvanceMatch(m));
 }
 
 /** Returns all team IDs that are still active (not yet eliminated). */
@@ -274,7 +274,13 @@ export function sortStandings(standings) {
  * Returns an array of 16 standing rows sorted by rank.
  */
 export function buildStandingsFromBracket(bracket, teams) {
-  const teamList = Array.isArray(teams) ? teams : [];
+  const teamList = (Array.isArray(teams) ? teams : []).filter((team) => (
+    team?.id
+    && team.isActive !== false
+    && team.is_participant !== false
+    && team.isParticipant !== false
+    && team.dropped !== true
+  ));
   const bracketArr = Array.isArray(bracket) ? bracket : [];
 
   // Collect all unique teamIds from bracket

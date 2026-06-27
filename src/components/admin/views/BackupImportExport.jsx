@@ -3,13 +3,13 @@ import { ActionCard, AdminPanel, SectionHeader } from "../AdminUI";
 
 export default function BackupImportExport({ store, runAction, fileInputRef, exportData, formatImportSummary }) {
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="min-w-0 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <SectionHeader
         title="Backup & Export"
         description="Amankan data tournament. Import akan divalidasi sebelum menimpa data saat ini."
       />
       
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <ActionCard
           title="Export JSON"
           description="Download data terbaru dari Supabase termasuk audit snapshot."
@@ -39,13 +39,13 @@ export default function BackupImportExport({ store, runAction, fileInputRef, exp
         icon={AlertTriangle}
         className="border-[#F22738]/40 shadow-[0_0_20px_rgba(242,39,56,0.15)]"
       >
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          <div className="max-w-xl">
+        <div className="flex min-w-0 flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0 max-w-xl">
             <p className="text-sm font-medium leading-relaxed text-white/60">
               Aksi reset akan menghapus data yang dipilih. Sistem secara otomatis membuat snapshot backup sebelum proses penghapusan dilakukan sebagai langkah pengamanan.
             </p>
           </div>
-          <div className="flex shrink-0 flex-col gap-3 sm:flex-row">
+          <div className="grid w-full shrink-0 grid-cols-1 gap-3 sm:flex sm:w-auto sm:flex-row">
             <button 
               onClick={() => window.confirm("Reset semua hasil bracket?") && runAction(store.resetBracketResults, "Bracket results reset.")} 
               className="rounded-xl border border-[#731414]/50 bg-[#400C0C]/50 px-5 py-3 text-xs font-black uppercase tracking-wider text-white transition-all hover:border-[#F2D98D]/50 hover:bg-[#F2D98D]/10 hover:text-[#F2D98D]"
@@ -62,11 +62,11 @@ export default function BackupImportExport({ store, runAction, fileInputRef, exp
         </div>
       </AdminPanel>
 
-      <div className="flex items-center justify-between rounded-xl border border-[#731414]/30 bg-[#260505]/40 px-6 py-4 text-xs font-bold uppercase tracking-wider text-white/50">
-        <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-[#731414]/30 bg-[#260505]/40 px-4 py-4 text-xs font-bold uppercase tracking-wider text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 items-center gap-2">
            <DatabaseBackup size={16} /> Data Status
         </div>
-        <span>
+        <span className="min-w-0 break-words">
           Last updated: <span className="text-[#F2D98D]">{store.tournamentConfig?.updatedAt ? new Date(store.tournamentConfig.updatedAt).toLocaleString() : "Unknown"}</span>
         </span>
       </div>

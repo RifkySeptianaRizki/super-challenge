@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import useTournamentStore from "../store/useTournamentStore";
-import { getChampion, validateBracketSchema } from "../lib/bracketEngine";
+import {
+  getChampion,
+  getRoundStructure,
+  getVisibleMatches,
+  isAutoAdvanceMatch,
+  validateBracketSchema,
+} from "../lib/bracketEngine";
 import TeamLogo from "./TeamLogo";
 
 const EMPTY_BRACKET = [];
@@ -9,69 +15,27 @@ const CARD_WIDTH = 252;
 const CARD_HEIGHT = 116;
 const CHAMPION_WIDTH = 250;
 
-const CANVAS_WIDTH = 1660;
-const CANVAS_HEIGHT = 1240;
+const CANVAS_TOP = 150;
+const COLUMN_GAP = 350;
+const CANVAS_PADDING_X = 32;
 
 // Ganti ke "/super-ml-logo.png" kalau yang dimaksud logo utama turnamen
 const MAIN_LOGO_SRC = "/superchallange-lanjang.png";
 
-const ROUND_META = [
-  { key: "R16", title: "ROUND OF 16", subtitle: "8 Matches", x: 32 },
-  { key: "QF", title: "QUARTER FINAL", subtitle: "4 Matches", x: 382 },
-  { key: "SF", title: "SEMI FINAL", subtitle: "2 Matches", x: 732 },
-  { key: "GF", title: "GRAND FINAL", subtitle: "1 Match", x: 1082 },
-  { key: "CHAMPION", title: "CHAMPION", subtitle: "Winner", x: 1382 },
-];
-
-const POSITIONS = {
-  "R16-1": { x: 32, y: 160 },
-  "R16-2": { x: 32, y: 292 },
-  "R16-3": { x: 32, y: 424 },
-  "R16-4": { x: 32, y: 556 },
-  "R16-5": { x: 32, y: 688 },
-  "R16-6": { x: 32, y: 820 },
-  "R16-7": { x: 32, y: 952 },
-  "R16-8": { x: 32, y: 1084 },
-
-  "QF-1": { x: 382, y: 226 },
-  "QF-2": { x: 382, y: 490 },
-  "QF-3": { x: 382, y: 754 },
-  "QF-4": { x: 382, y: 1018 },
-
-  "SF-1": { x: 732, y: 358 },
-  "SF-2": { x: 732, y: 886 },
-
-  "GF-1": { x: 1082, y: 622 },
-
-  CHAMPION: { x: 1382, y: 622 },
+const ROUND_TITLES = {
+  R16: ["ROUND OF 16", "8 Matches"],
+  QF: ["QUARTER FINAL", "4 Matches"],
+  SF: ["SEMI FINAL", "2 Matches"],
+  GF: ["GRAND FINAL", "1 Match"],
+  CHAMPION: ["CHAMPION", "Winner"],
 };
-
-const CONNECTORS = [
-  ["R16-1", "QF-1"],
-  ["R16-2", "QF-1"],
-  ["R16-3", "QF-2"],
-  ["R16-4", "QF-2"],
-  ["R16-5", "QF-3"],
-  ["R16-6", "QF-3"],
-  ["R16-7", "QF-4"],
-  ["R16-8", "QF-4"],
-
-  ["QF-1", "SF-1"],
-  ["QF-2", "SF-1"],
-  ["QF-3", "SF-2"],
-  ["QF-4", "SF-2"],
-
-  ["SF-1", "GF-1"],
-  ["SF-2", "GF-1"],
-
-  ["GF-1", "CHAMPION"],
-];
 
 const STATUS_LABEL = {
   empty: "Waiting",
   upcoming: "Upcoming",
   live: "Live",
   completed: "Completed",
+  auto: "Auto Advance",
 };
 
 const statusClass = (status) => {
@@ -87,8 +51,61 @@ const statusClass = (status) => {
     return "border-white/15 bg-white/10 text-white/80";
   }
 
+  if (status === "auto") {
+    return "border-[#F2D98D]/35 bg-[#F2D98D]/10 text-[#F2D98D]";
+  }
+
   return "border-white/10 bg-black/30 text-white/45";
 };
+
+function buildBracketLayout(matches, bracketSize) {
+  const roundKeys = getRoundStructure(bracketSize)
+    .map((definition) => definition.round)
+    .filter((round, index, list) => list.indexOf(round) === index);
+  const columns = [...roundKeys, "CHAMPION"];
+  const firstRoundCount = Math.max(1, matches.filter((match) => match.round === roundKeys[0]).length);
+  const canvasHeight = Math.max(520, CANVAS_TOP + firstRoundCount * 132 + 80);
+  const canvasWidth = CANVAS_PADDING_X * 2 + (columns.length - 1) * COLUMN_GAP + CHAMPION_WIDTH;
+  const positions = {};
+
+  columns.forEach((column, columnIndex) => {
+    const x = CANVAS_PADDING_X + columnIndex * COLUMN_GAP;
+    if (column === "CHAMPION") {
+      positions.CHAMPION = {
+        x,
+        y: Math.round(canvasHeight / 2 - CARD_HEIGHT / 2),
+      };
+      return;
+    }
+
+    const roundMatches = matches
+      .filter((match) => match.round === column)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const available = Math.max(CARD_HEIGHT, canvasHeight - CANVAS_TOP - 80);
+    roundMatches.forEach((match, index) => {
+      const y = CANVAS_TOP + Math.round(((index + 0.5) * available) / roundMatches.length - CARD_HEIGHT / 2);
+      positions[match.id] = { x, y };
+    });
+  });
+
+  const roundMeta = columns.map((column, columnIndex) => {
+    const [title, fallbackSubtitle] = ROUND_TITLES[column];
+    const count = column === "CHAMPION" ? 1 : matches.filter((match) => match.round === column).length;
+    return {
+      key: column,
+      title,
+      subtitle: column === "CHAMPION" ? fallbackSubtitle : `${count} ${count === 1 ? "Match" : "Matches"}`,
+      x: CANVAS_PADDING_X + columnIndex * COLUMN_GAP,
+    };
+  });
+
+  const connectors = matches
+    .filter((match) => match.nextMatchId)
+    .map((match) => [match.id, match.nextMatchId]);
+  connectors.push(["GF-1", "CHAMPION"]);
+
+  return { canvasWidth, canvasHeight, positions, roundMeta, connectors };
+}
 
 function MatchCard({ match, teamsById, style }) {
   const getTeam = (teamId) => teamsById.get(teamId) || null;
@@ -131,10 +148,11 @@ function MatchCard({ match, teamsById, style }) {
     const teamId = slot === "A" ? match.teamAId : match.teamBId;
     const score = slot === "A" ? match.scoreA : match.scoreB;
     const seed = slot === "A" ? match.teamASeed : match.teamBSeed;
+    const isBye = slot === "A" ? match.teamAIsBye || match.slotAType === "bye" : match.teamBIsBye || match.slotBType === "bye";
 
     const display = getDisplayTeam(teamId);
     const winner = isWinner(teamId);
-    const isTba = !teamId;
+    const isTba = !teamId && !isBye;
 
     return (
       <div
@@ -143,10 +161,16 @@ function MatchCard({ match, teamsById, style }) {
           winner
             ? "border-[#F2D98D] bg-[#731414]/80 text-white"
             : "border-transparent bg-black/25 text-white/78",
-          isTba ? "text-white/45" : "",
+          isTba || isBye ? "text-white/45" : "",
         ].join(" ")}
       >
-        <TeamLogo team={display.team} code={display.code} name={display.name} size={28} />
+        {isBye ? (
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#F2D98D]/25 bg-[#F2D98D]/10 text-[9px] font-black text-[#F2D98D]">
+            BYE
+          </div>
+        ) : (
+          <TeamLogo team={display.team} code={display.code} name={display.name} size={28} />
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -154,7 +178,7 @@ function MatchCard({ match, teamsById, style }) {
               className="truncate text-[13px] font-black uppercase leading-none"
               title={display.name}
             >
-              {display.code}
+              {isBye ? "BYE" : display.code}
             </span>
 
             {winner && (
@@ -165,7 +189,7 @@ function MatchCard({ match, teamsById, style }) {
           </div>
 
           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/35">
-            {seed ? `Seed ${seed}` : isTba ? "Waiting" : "Seed TBA"}
+            {isBye ? "Auto advance slot" : seed ? `Seed ${seed}` : isTba ? "Waiting" : "Seed TBA"}
           </div>
         </div>
 
@@ -177,7 +201,7 @@ function MatchCard({ match, teamsById, style }) {
               : "border-white/10 bg-black/35 text-white/65",
           ].join(" ")}
         >
-          {isTba ? "-" : score}
+          {isTba || isBye ? "-" : score}
         </div>
       </div>
     );
@@ -187,7 +211,9 @@ function MatchCard({ match, teamsById, style }) {
     <article
       className={[
         "absolute z-10 overflow-hidden rounded-xl border bg-[#260505]/95 shadow-2xl backdrop-blur transition duration-200 hover:-translate-y-0.5",
-        match.status === "live"
+        isAutoAdvanceMatch(match)
+          ? "border-[#F2D98D]/45 shadow-[#F2D98D]/10"
+          : match.status === "live"
           ? "border-[#F22738]/70 shadow-[#F22738]/20"
           : match.status === "completed"
             ? "border-[#F2D98D]/40 shadow-black/45"
@@ -202,7 +228,7 @@ function MatchCard({ match, teamsById, style }) {
       <header className="flex h-8 items-center justify-between border-b border-white/10 bg-black/35 px-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-black uppercase tracking-wide text-[#F2D98D]">
-            {match.id}
+          {match.id}
           </span>
 
           <span className="rounded-sm border border-[#F22738]/35 bg-[#400C0C] px-1.5 py-0.5 text-[10px] font-black text-white/70">
@@ -212,10 +238,10 @@ function MatchCard({ match, teamsById, style }) {
 
         <span
           className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${statusClass(
-            match.status
+            isAutoAdvanceMatch(match) ? "auto" : match.status
           )}`}
         >
-          {STATUS_LABEL[match.status] || "Waiting"}
+          {isAutoAdvanceMatch(match) ? STATUS_LABEL.auto : STATUS_LABEL[match.status] || "Waiting"}
         </span>
       </header>
 
@@ -227,7 +253,7 @@ function MatchCard({ match, teamsById, style }) {
   );
 }
 
-function ChampionCard({ championId, teamsById }) {
+function ChampionCard({ championId, teamsById, style }) {
   const team = championId ? teamsById.get(championId) : null;
   const code = team?.code || (championId ? "UNKNOWN" : "TBA");
 
@@ -245,8 +271,7 @@ function ChampionCard({ championId, teamsById }) {
           : "border-[#731414]/55 bg-[#260505]/90",
       ].join(" ")}
       style={{
-        left: POSITIONS.CHAMPION.x,
-        top: POSITIONS.CHAMPION.y,
+        ...style,
         width: CHAMPION_WIDTH,
         height: CARD_HEIGHT,
       }}
@@ -280,9 +305,9 @@ function ChampionCard({ championId, teamsById }) {
   );
 }
 
-function Connector({ from, to, active }) {
-  const start = POSITIONS[from];
-  const end = POSITIONS[to];
+function Connector({ from, to, active, positions }) {
+  const start = positions[from];
+  const end = positions[to];
 
   if (!start || !end) return null;
 
@@ -322,19 +347,34 @@ export default function BracketSection() {
     [validation]
   );
 
+  const bracketSize = tournamentConfig.bracketSize
+    || tournamentConfig.bracket_size
+    || safeBracket.find((match) => match.bracketSize)?.bracketSize
+    || 16;
+
+  const visibleMatches = useMemo(
+    () => getVisibleMatches(safeBracket, bracketSize),
+    [safeBracket, bracketSize]
+  );
+
+  const layout = useMemo(
+    () => buildBracketLayout(visibleMatches, bracketSize),
+    [visibleMatches, bracketSize]
+  );
+
   const teamsById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams]
   );
 
   const matchesById = useMemo(
-    () => new Map(safeBracket.map((match) => [match.id, match])),
-    [safeBracket]
+    () => new Map(visibleMatches.map((match) => [match.id, match])),
+    [visibleMatches]
   );
 
   const championId = useMemo(() => getChampion(safeBracket), [safeBracket]);
 
-  if (!safeBracket.length) {
+  if (!visibleMatches.length) {
     return (
       <section className="relative min-h-screen overflow-hidden bg-[#260505] py-24 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(242,39,56,0.18),transparent_32%),linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.78))]" />
@@ -366,7 +406,7 @@ export default function BracketSection() {
       <div className="relative z-10 mx-auto w-full max-w-[112rem] px-4 sm:px-6 lg:px-8">
         <div className="mb-10 text-center">
           <div className="text-xs font-black uppercase tracking-[0.36em] text-[#F22738]">
-            {tournamentConfig.seriesType || "BO3"} • 16 Team Single Elimination
+            {tournamentConfig.seriesType || "BO3"} • {tournamentConfig.participantCount || tournamentConfig.participant_count || 16} Team Flexible Single Elimination
           </div>
 
           <h2 className="mt-3 bg-gradient-to-r from-[#F2D98D] via-white to-[#F2D98D] bg-clip-text font-bebas text-5xl font-extrabold uppercase italic tracking-normal text-transparent drop-shadow-lg md:text-7xl">
@@ -390,8 +430,8 @@ export default function BracketSection() {
           <div
             className="relative mx-auto overflow-hidden rounded-3xl border border-[#731414]/60 bg-[#400C0C]/42 shadow-2xl backdrop-blur-sm"
             style={{
-              minWidth: CANVAS_WIDTH,
-              height: CANVAS_HEIGHT,
+              minWidth: layout.canvasWidth,
+              height: layout.canvasHeight,
             }}
           >
             {/* Background grid */}
@@ -402,8 +442,8 @@ export default function BracketSection() {
               className="absolute z-[6] pointer-events-none"
               style={{
                 left: 1130,
-                top: 260,
-                width: 510,
+                top: Math.max(210, layout.canvasHeight / 2 - 180),
+                width: Math.min(510, Math.max(280, layout.canvasWidth * 0.3)),
               }}
             >
               <div className="absolute inset-0 scale-110 rounded-full bg-[#F22738]/10 blur-3xl" />
@@ -416,7 +456,7 @@ export default function BracketSection() {
             </div>
 
             {/* Round headers */}
-            {ROUND_META.map((round) => (
+            {layout.roundMeta.map((round) => (
               <div
                 key={round.key}
                 className="absolute z-10"
@@ -440,11 +480,11 @@ export default function BracketSection() {
             {/* Connector lines */}
             <svg
               className="absolute inset-0 z-0 h-full w-full"
-              viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+              viewBox={`0 0 ${layout.canvasWidth} ${layout.canvasHeight}`}
               preserveAspectRatio="none"
               aria-hidden="true"
             >
-              {CONNECTORS.map(([from, to]) => {
+              {layout.connectors.map(([from, to]) => {
                 const source = matchesById.get(from);
 
                 return (
@@ -453,14 +493,15 @@ export default function BracketSection() {
                     from={from}
                     to={to}
                     active={source?.status === "completed"}
+                    positions={layout.positions}
                   />
                 );
               })}
             </svg>
 
             {/* Match cards */}
-            {safeBracket.map((match) => {
-              const position = POSITIONS[match.id];
+            {visibleMatches.map((match) => {
+              const position = layout.positions[match.id];
 
               if (!position) return null;
 
@@ -478,7 +519,7 @@ export default function BracketSection() {
             })}
 
             {/* Champion card */}
-            <ChampionCard championId={championId} teamsById={teamsById} />
+            <ChampionCard championId={championId} teamsById={teamsById} style={layout.positions.CHAMPION} />
           </div>
         </div>
       </div>

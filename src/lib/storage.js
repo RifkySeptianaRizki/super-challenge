@@ -133,6 +133,11 @@ const sanitizeTeam = (team, index) => {
     logo_key: logoKey,
     color: safeString(team?.color || fallback.color || "#F22738", 20),
     record: safeString(team?.record || fallback.record || "0 - 0", 20),
+    isParticipant: team?.isParticipant ?? team?.is_participant ?? fallback.isParticipant ?? true,
+    is_participant: team?.isParticipant ?? team?.is_participant ?? fallback.is_participant ?? true,
+    checkedIn: team?.checkedIn ?? team?.checked_in ?? fallback.checkedIn ?? true,
+    checked_in: team?.checkedIn ?? team?.checked_in ?? fallback.checked_in ?? true,
+    dropped: Boolean(team?.dropped ?? fallback.dropped ?? false),
   };
 };
 
@@ -275,10 +280,13 @@ export function migrateLegacyData(data = {}) {
     : migrateLegacyBracket(source.bracket, teams);
   const timestamp = new Date().toISOString();
   const sourceConfig = isPlainObject(source.tournamentConfig) ? source.tournamentConfig : {};
+  const participantCount = Number.isInteger(Number(sourceConfig.participantCount ?? sourceConfig.participant_count))
+    ? Number(sourceConfig.participantCount ?? sourceConfig.participant_count)
+    : teams.filter((team) => team.is_participant !== false && team.dropped !== true).length;
 
   return {
     tournamentConfig: {
-      ...createTournamentConfig(sourceConfig),
+      ...createTournamentConfig({ participantCount, ...sourceConfig }),
       schemaVersion: BRACKET_SCHEMA_VERSION,
       updatedAt: timestamp,
     },

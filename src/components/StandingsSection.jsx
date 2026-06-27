@@ -31,10 +31,11 @@ export default function StandingsSection() {
     [bracket, teams]
   );
 
-  // Split into two halves for the existing 2-table layout
-  const leftStandings = standings.slice(0, 8);
-  const rightStandings = standings.slice(8, 16);
-  const tables = [leftStandings, rightStandings];
+  // Keep the existing two-table visual, but size it from active participants.
+  const splitIndex = Math.ceil(standings.length / 2);
+  const leftStandings = standings.slice(0, splitIndex);
+  const rightStandings = standings.slice(splitIndex);
+  const tables = rightStandings.length ? [leftStandings, rightStandings] : [leftStandings];
 
   // Empty state
   if (!teams || teams.length === 0) {
@@ -161,7 +162,7 @@ export default function StandingsSection() {
                   <tbody>
                     {tableData.map((team, index) => {
                       const rank =
-                        team.rank || (tIndex === 0 ? index + 1 : index + 9);
+                        team.rank || (tIndex === 0 ? index + 1 : index + splitIndex + 1);
 
                       return (
                         <tr
