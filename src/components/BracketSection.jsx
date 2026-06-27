@@ -2,33 +2,24 @@ import { useMemo } from "react";
 import useTournamentStore from "../store/useTournamentStore";
 import {
   getChampion,
-  getRoundStructure,
   getVisibleMatches,
   isAutoAdvanceMatch,
   validateBracketSchema,
 } from "../lib/bracketEngine";
+import {
+  BRACKET_CARD_HEIGHT as CARD_HEIGHT,
+  BRACKET_CARD_WIDTH as CARD_WIDTH,
+  BRACKET_CHAMPION_WIDTH as CHAMPION_WIDTH,
+  buildBracketLayout,
+  getPositionStyle,
+  resolveBracketSize,
+} from "../lib/bracketLayout";
 import TeamLogo from "./TeamLogo";
 
 const EMPTY_BRACKET = [];
 
-const CARD_WIDTH = 252;
-const CARD_HEIGHT = 116;
-const CHAMPION_WIDTH = 250;
-
-const CANVAS_TOP = 150;
-const COLUMN_GAP = 350;
-const CANVAS_PADDING_X = 32;
-
 // Ganti ke "/super-ml-logo.png" kalau yang dimaksud logo utama turnamen
 const MAIN_LOGO_SRC = "/superchallange-lanjang.png";
-
-const ROUND_TITLES = {
-  R16: ["ROUND OF 16", "8 Matches"],
-  QF: ["QUARTER FINAL", "4 Matches"],
-  SF: ["SEMI FINAL", "2 Matches"],
-  GF: ["GRAND FINAL", "1 Match"],
-  CHAMPION: ["CHAMPION", "Winner"],
-};
 
 const STATUS_LABEL = {
   empty: "Waiting",
@@ -57,55 +48,6 @@ const statusClass = (status) => {
 
   return "border-white/10 bg-black/30 text-white/45";
 };
-
-function buildBracketLayout(matches, bracketSize) {
-  const roundKeys = getRoundStructure(bracketSize)
-    .map((definition) => definition.round)
-    .filter((round, index, list) => list.indexOf(round) === index);
-  const columns = [...roundKeys, "CHAMPION"];
-  const firstRoundCount = Math.max(1, matches.filter((match) => match.round === roundKeys[0]).length);
-  const canvasHeight = Math.max(520, CANVAS_TOP + firstRoundCount * 132 + 80);
-  const canvasWidth = CANVAS_PADDING_X * 2 + (columns.length - 1) * COLUMN_GAP + CHAMPION_WIDTH;
-  const positions = {};
-
-  columns.forEach((column, columnIndex) => {
-    const x = CANVAS_PADDING_X + columnIndex * COLUMN_GAP;
-    if (column === "CHAMPION") {
-      positions.CHAMPION = {
-        x,
-        y: Math.round(canvasHeight / 2 - CARD_HEIGHT / 2),
-      };
-      return;
-    }
-
-    const roundMatches = matches
-      .filter((match) => match.round === column)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    const available = Math.max(CARD_HEIGHT, canvasHeight - CANVAS_TOP - 80);
-    roundMatches.forEach((match, index) => {
-      const y = CANVAS_TOP + Math.round(((index + 0.5) * available) / roundMatches.length - CARD_HEIGHT / 2);
-      positions[match.id] = { x, y };
-    });
-  });
-
-  const roundMeta = columns.map((column, columnIndex) => {
-    const [title, fallbackSubtitle] = ROUND_TITLES[column];
-    const count = column === "CHAMPION" ? 1 : matches.filter((match) => match.round === column).length;
-    return {
-      key: column,
-      title,
-      subtitle: column === "CHAMPION" ? fallbackSubtitle : `${count} ${count === 1 ? "Match" : "Matches"}`,
-      x: CANVAS_PADDING_X + columnIndex * COLUMN_GAP,
-    };
-  });
-
-  const connectors = matches
-    .filter((match) => match.nextMatchId)
-    .map((match) => [match.id, match.nextMatchId]);
-  connectors.push(["GF-1", "CHAMPION"]);
-
-  return { canvasWidth, canvasHeight, positions, roundMeta, connectors };
-}
 
 function MatchCard({ match, teamsById, style }) {
   const getTeam = (teamId) => teamsById.get(teamId) || null;
@@ -347,10 +289,10 @@ export default function BracketSection() {
     [validation]
   );
 
-  const bracketSize = tournamentConfig.bracketSize
-    || tournamentConfig.bracket_size
-    || safeBracket.find((match) => match.bracketSize)?.bracketSize
-    || 16;
+  const bracketSize = useMemo(
+    () => resolveBracketSize(safeBracket, tournamentConfig),
+    [safeBracket, tournamentConfig]
+  );
 
   const visibleMatches = useMemo(
     () => getVisibleMatches(safeBracket, bracketSize),
@@ -365,11 +307,6 @@ export default function BracketSection() {
   const teamsById = useMemo(
     () => new Map(teams.map((team) => [team.id, team])),
     [teams]
-  );
-
-  const matchesById = useMemo(
-    () => new Map(visibleMatches.map((match) => [match.id, match])),
-    [visibleMatches]
   );
 
   const championId = useMemo(() => getChampion(safeBracket), [safeBracket]);
@@ -439,11 +376,11 @@ export default function BracketSection() {
 
             {/* Big Super logo in empty bracket area */}
             <div
-              className="absolute z-[6] pointer-events-none"
+              className="pointer-events-none absolute z-[1]"
               style={{
-                left: 1130,
-                top: Math.max(210, layout.canvasHeight / 2 - 180),
-                width: Math.min(510, Math.max(280, layout.canvasWidth * 0.3)),
+                left: layout.logo.left,
+                top: layout.logo.top,
+                width: layout.logo.width,
               }}
             >
               <div className="absolute inset-0 scale-110 rounded-full bg-[#F22738]/10 blur-3xl" />
@@ -462,9 +399,8 @@ export default function BracketSection() {
                 className="absolute z-10"
                 style={{
                   left: round.x,
-                  top: 95,
-                  width:
-                    round.key === "CHAMPION" ? CHAMPION_WIDTH : CARD_WIDTH,
+                  top: round.top,
+                  width: round.width,
                 }}
               >
                 <div className="text-xs font-black uppercase tracking-[0.24em] text-[#F2D98D]">
@@ -479,24 +415,20 @@ export default function BracketSection() {
 
             {/* Connector lines */}
             <svg
-              className="absolute inset-0 z-0 h-full w-full"
+              className="absolute inset-0 z-[2] h-full w-full"
               viewBox={`0 0 ${layout.canvasWidth} ${layout.canvasHeight}`}
               preserveAspectRatio="none"
               aria-hidden="true"
             >
-              {layout.connectors.map(([from, to]) => {
-                const source = matchesById.get(from);
-
-                return (
-                  <Connector
-                    key={`${from}-${to}`}
-                    from={from}
-                    to={to}
-                    active={source?.status === "completed"}
-                    positions={layout.positions}
-                  />
-                );
-              })}
+              {layout.connectors.map((connector) => (
+                <Connector
+                  key={`${connector.from}-${connector.to}`}
+                  from={connector.from}
+                  to={connector.to}
+                  active={connector.active}
+                  positions={layout.positions}
+                />
+              ))}
             </svg>
 
             {/* Match cards */}
@@ -510,16 +442,17 @@ export default function BracketSection() {
                   key={match.id}
                   match={match}
                   teamsById={teamsById}
-                  style={{
-                    left: position.x,
-                    top: position.y,
-                  }}
+                  style={getPositionStyle(position)}
                 />
               );
             })}
 
             {/* Champion card */}
-            <ChampionCard championId={championId} teamsById={teamsById} style={layout.positions.CHAMPION} />
+            <ChampionCard
+              championId={championId}
+              teamsById={teamsById}
+              style={getPositionStyle(layout.positions.CHAMPION)}
+            />
           </div>
         </div>
       </div>
